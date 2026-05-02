@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+instance/
+uploads/
+.env
+.git/
+.gitignore
+.vscode/
+.idea/
+tests/
+.pytest_cache/
+.gemini/
+Gemini.md

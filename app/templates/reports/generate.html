@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Reportes — Bitácora{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="h3 fw-bold mb-1"><i class="bi bi-file-earmark-pdf me-2 text-accent"></i>Reportes</h1>
+    <p class="text-muted mb-0">Genera reportes en PDF por tarea o rango de fechas</p>
+</div>
+
+<div class="row g-4">
+    <!-- Reporte por tarea -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-file-text me-2 text-accent"></i>Reporte por Tarea</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Selecciona una tarea para generar su reporte completo con historial de avances.</p>
+                <form method="GET" id="taskReportForm">
+                    <div class="mb-3">
+                        <label for="taskSelect" class="form-label fw-medium">Tarea</label>
+                        <select class="form-select" id="taskSelect" required>
+                            <option value="">Seleccionar tarea...</option>
+                            {% for task in tasks %}
+                            <option value="{{ task.id }}">#{{ task.id }} — {{ task.nombre | truncate(50) }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" onclick="generateTaskReport()">
+                        <i class="bi bi-file-pdf me-1"></i> Generar PDF
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reporte por rango -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-calendar-range me-2 text-accent"></i>Reporte por Fechas</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Genera un reporte consolidado de todas las tareas creadas en un rango de fechas.</p>
+                <form method="POST" action="{{ url_for('reports.range_report') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label for="fecha_inicio" class="form-label fw-medium">Desde</label>
+                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
+                        </div>
+                        <div class="col-6">
+                            <label for="fecha_fin" class="form-label fw-medium">Hasta</label>
+                            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-file-pdf me-1"></i> Generar PDF
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exportar CSV -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-filetype-csv me-2 text-accent"></i>Exportar CSV</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Descarga todas las tareas en formato CSV.</p>
+                <a href="{{ url_for('api.export_csv') }}" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-download me-1"></i> Descargar CSV
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function generateTaskReport() {
+    const sel = document.getElementById('taskSelect');
+    if (!sel.value) { alert('Selecciona una tarea.'); return; }
+    window.open('{{ url_for("reports.task_report", task_id=0) }}'.replace('0', sel.value), '_blank');
+}
+</script>
+{% endblock %}

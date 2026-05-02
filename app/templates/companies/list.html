@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Empresas — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1">
+            <i class="bi bi-building me-2 text-accent"></i>Empresas
+        </h1>
+        <p class="text-muted mb-0">Gestión de empresas del sistema SaaS</p>
+    </div>
+    <a href="{{ url_for('companies.create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Nueva Empresa
+    </a>
+</div>
+
+{% if companies %}
+<div class="row g-3">
+    {% for company in companies %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card border-0 shadow-sm h-100 company-card">
+            <div class="card-body">
+                <div class="d-flex align-items-start justify-content-between mb-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="company-avatar">
+                            <i class="bi bi-building"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0 fw-semibold">{{ company.nombre }}</h5>
+                            <small class="text-muted">{{ company.rfc or '—' }}</small>
+                        </div>
+                    </div>
+                    <span class="badge {{ 'bg-success' if company.activa else 'bg-secondary' }}">
+                        {{ 'Activa' if company.activa else 'Inactiva' }}
+                    </span>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="detail-item">
+                            <span class="detail-label">Representante</span>
+                            <span class="detail-value">{{ company.representante_legal or '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="detail-item">
+                            <span class="detail-label">Email</span>
+                            <span class="detail-value">{{ company.email_contacto or '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="detail-item">
+                            <span class="detail-label">Teléfono</span>
+                            <span class="detail-value">{{ company.telefono or '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="detail-item">
+                            <span class="detail-label">IA</span>
+                            <span class="detail-value">{{ company.ai_provider_label }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <form method="POST" action="{{ url_for('companies.switch_company', company_id=company.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sm btn-primary" {{ 'disabled' if not company.activa }}>
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                        </button>
+                    </form>
+                    <a href="{{ url_for('companies.edit', company_id=company.id) }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <form method="POST" action="{{ url_for('companies.toggle_active', company_id=company.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sm btn-outline-{{ 'danger' if company.activa else 'success' }}"
+                                data-confirm="{{ '¿Desactivar' if company.activa else '¿Activar' }} esta empresa?">
+                            <i class="bi bi-{{ 'x-circle' if company.activa else 'check-circle' }}"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-building display-4 text-muted"></i>
+    <p class="text-muted mt-2">No hay empresas registradas.</p>
+    <a href="{{ url_for('companies.create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Crear primera empresa
+    </a>
+</div>
+{% endif %}
+{% endblock %}

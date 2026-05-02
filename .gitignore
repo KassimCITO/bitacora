@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+ENV/
+
+# Instance / Database
+instance/
+*.db
+*.sqlite3
+
+# Uploads
+uploads/
+
+# Environment Variables
+.env
+.flaskenv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Byte-compiled
+*.pyc
+
+# Distribution
+*.tar.gz
+*.whl
+
+# Gemini / AI
+.gemini/
+Gemini.md

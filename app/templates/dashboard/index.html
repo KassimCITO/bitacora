@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ app_name }}{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1">
+            <i class="bi bi-speedometer2 me-2 text-accent"></i>Dashboard
+        </h1>
+        <p class="text-muted mb-0">Bienvenido, {{ current_user.nombre_completo }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if current_user.has_role('administrador', 'manager') or current_user.is_superuser %}
+        <a href="{{ url_for('tasks.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Nueva Tarea
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Status Cards -->
+<div class="row g-3 mb-4">
+    <!-- Total -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card stat-card-total">
+            <div class="stat-icon"><i class="bi bi-clipboard2-data"></i></div>
+            <div class="stat-value">{{ total }}</div>
+            <div class="stat-label">Total</div>
+        </div>
+    </div>
+    <!-- Pendientes -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card stat-card-pendiente">
+            <div class="stat-icon"><i class="bi bi-clock"></i></div>
+            <div class="stat-value">{{ estado_counts.get('pendiente', 0) }}</div>
+            <div class="stat-label">Pendientes</div>
+        </div>
+    </div>
+    <!-- En Progreso -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card stat-card-en_progreso">
+            <div class="stat-icon"><i class="bi bi-play-circle"></i></div>
+            <div class="stat-value">{{ estado_counts.get('en_progreso', 0) }}</div>
+            <div class="stat-label">En Progreso</div>
+        </div>
+    </div>
+    <!-- Pausadas -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card stat-card-pausada">
+            <div class="stat-icon"><i class="bi bi-pause-circle"></i></div>
+            <div class="stat-value">{{ estado_counts.get('pausada', 0) }}</div>
+            <div class="stat-label">Pausadas</div>
+        </div>
+    </div>
+    <!-- Terminadas -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card stat-card-terminada">
+            <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-value">{{ estado_counts.get('terminada', 0) }}</div>
+            <div class="stat-label">Terminadas</div>
+        </div>
+    </div>
+    <!-- Urgentes -->
+    <div class="col-6 col-md-4 col-xl-2">
+        <div class="stat-card stat-card-urgent">
+            <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="stat-value">{{ urgent }}</div>
+            <div class="stat-label">Urgentes</div>
+        </div>
+    </div>
+</div>
+
+<!-- Calendar Grid -->
+<div class="card border-0 shadow-sm mb-4" id="calendarCard">
+    <div class="card-header bg-transparent border-0 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+            <h5 class="mb-0 fw-semibold">
+                <i class="bi bi-calendar3 me-2 text-accent"></i>
+                <span id="calendarTitle">Calendario</span>
+            </h5>
+            <div class="d-flex align-items-center gap-1">
+                <button class="btn btn-sm btn-outline-secondary" id="calPrev" title="Anterior">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" id="calToday" title="Hoy">Hoy</button>
+                <button class="btn btn-sm btn-outline-secondary" id="calNext" title="Siguiente">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        <div class="btn-group" role="group" id="calViewButtons">
+            <button type="button" class="btn btn-sm btn-outline-accent" data-view="daily">Diario</button>
+            <button type="button" class="btn btn-sm btn-outline-accent" data-view="weekly">Semanal</button>
+            <button type="button" class="btn btn-sm btn-outline-accent active" data-view="monthly">Mensual</button>
+            <button type="button" class="btn btn-sm btn-outline-accent" data-view="yearly">Anual</button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="calendarGrid" class="calendar-grid"></div>
+        <!-- Legend -->
+        <div class="d-flex align-items-center gap-3 mt-3 justify-content-end calendar-legend">
+            <small class="text-muted">Pendientes:</small>
+            <span class="cal-legend-item cal-level-0"></span><small class="text-muted">0</small>
+            <span class="cal-legend-item cal-level-1"></span><small class="text-muted">1-2</small>
+            <span class="cal-legend-item cal-level-2"></span><small class="text-muted">3-5</small>
+            <span class="cal-legend-item cal-level-3"></span><small class="text-muted">6+</small>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Tasks -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 d-flex align-items-center justify-content-between">
+        <h5 class="mb-0 fw-semibold">
+            <i class="bi bi-clock-history me-2 text-accent"></i>Tareas Recientes
+        </h5>
+        <a href="{{ url_for('tasks.list_tasks') }}" class="btn btn-sm btn-outline-primary">
+            Ver todas <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+    </div>
+    <div class="card-body p-0">
+        {% if recent_tasks %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">#</th>
+                        <th>Tarea</th>
+                        <th>Estado</th>
+                        <th>Prioridad</th>
+                        <th>Asignado</th>
+                        <th>Avance</th>
+                        <th class="text-end pe-4">Actualización</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in recent_tasks %}
+                    <tr class="task-row" onclick="window.location='{{ url_for('tasks.detail', task_id=task.id) }}'">
+                        <td class="ps-4 fw-medium">{{ task.id }}</td>
+                        <td>
+                            <span class="fw-medium">{{ task.nombre | truncate(40) }}</span>
+                            {% if task.grupo %}
+                            <span class="badge ms-1" style="background: {{ task.grupo.color }}20; color: {{ task.grupo.color }}; font-size: 0.65rem;">
+                                {{ task.grupo.nombre }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ task.estado_badge }}">{{ task.estado_label }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ task.prioridad_badge }}-subtle text-{{ task.prioridad_badge }}">
+                                {{ task.prioridad_label }}
+                            </span>
+                        </td>
+                        <td class="text-muted">{{ task.usuario_asignado.nombre_completo | truncate(20) }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress flex-grow-1" style="height: 6px; width: 80px;">
+                                    <div class="progress-bar progress-bar-animated bg-accent"
+                                         style="width: {{ task.ultimo_avance }}%"></div>
+                                </div>
+                                <small class="text-muted">{{ task.ultimo_avance }}%</small>
+                            </div>
+                        </td>
+                        <td class="text-end pe-4 text-muted small">
+                            {{ task.ultima_actualizacion.strftime('%d/%m/%Y %H:%M') if task.ultima_actualizacion else '—' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox display-4 text-muted"></i>
+            <p class="text-muted mt-2">No hay tareas registradas aún.</p>
+            {% if current_user.has_role('administrador', 'manager') or current_user.is_superuser %}
+            <a href="{{ url_for('tasks.create') }}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i> Crear primera tarea
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/calendar.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Usuarios — Bitácora{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1"><i class="bi bi-people me-2 text-accent"></i>Usuarios</h1>
+        <p class="text-muted mb-0">{{ users|length }} usuario{{ 's' if users|length != 1 else '' }} registrado{{ 's' if users|length != 1 else '' }}</p>
+    </div>
+    <a href="{{ url_for('users.create') }}" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i> Nuevo Usuario</a>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">#</th>
+                        <th>Nombre</th>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td class="ps-4 fw-medium">{{ user.id }}</td>
+                        <td class="fw-medium">{{ user.nombre_completo }}</td>
+                        <td class="text-muted">{{ user.username }}</td>
+                        <td class="text-muted small">{{ user.email }}</td>
+                        <td><span class="badge bg-primary-subtle text-primary">{{ user.role.name | capitalize }}</span></td>
+                        <td>
+                            {% if user.activo %}
+                            <span class="badge bg-success-subtle text-success"><i class="bi bi-check-circle me-1"></i>Activo</span>
+                            {% else %}
+                            <span class="badge bg-danger-subtle text-danger"><i class="bi bi-x-circle me-1"></i>Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{{ url_for('users.edit', user_id=user.id) }}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil"></i></a>
+                                <form method="POST" action="{{ url_for('users.toggle_active', user_id=user.id) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-{{ 'warning' if user.activo else 'success' }}" title="{{ 'Desactivar' if user.activo else 'Activar' }}">
+                                        <i class="bi bi-{{ 'pause' if user.activo else 'play' }}"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

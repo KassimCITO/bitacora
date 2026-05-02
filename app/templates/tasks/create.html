@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Nueva Tarea — Bitácora{% endblock %}
+
+{% block quill_css %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('tasks.list_tasks') }}">Tareas</a></li>
+        <li class="breadcrumb-item active">Nueva</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-plus-circle me-2 text-accent"></i>Nueva Tarea</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('tasks.create') }}" id="taskForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label fw-medium">Nombre de la tarea *</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required maxlength="200" placeholder="Ej: Revisión de inventario">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Descripción</label>
+                        <div id="quill-editor" class="quill-container"></div>
+                        <input type="hidden" name="descripcion" id="descripcion">
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="fecha_hora_inicio" class="form-label fw-medium">Fecha/hora de inicio *</label>
+                            <input type="datetime-local" class="form-control" id="fecha_hora_inicio" name="fecha_hora_inicio" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="fecha_hora_fin_estimada" class="form-label fw-medium">Fin estimado</label>
+                            <input type="datetime-local" class="form-control" id="fecha_hora_fin_estimada" name="fecha_hora_fin_estimada">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <label for="estado" class="form-label fw-medium">Estado</label>
+                            <select class="form-select" id="estado" name="estado">
+                                {% for val, label in estados %}
+                                <option value="{{ val }}" {% if val == 'pendiente' %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="prioridad" class="form-label fw-medium">Prioridad</label>
+                            <select class="form-select" id="prioridad" name="prioridad">
+                                {% for val, label in prioridades %}
+                                <option value="{{ val }}" {% if val == 'media' %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="usuario_asignado_id" class="form-label fw-medium">Asignar a *</label>
+                            <select class="form-select" id="usuario_asignado_id" name="usuario_asignado_id" required>
+                                <option value="">Seleccionar...</option>
+                                {% for u in users %}
+                                <option value="{{ u.id }}">{{ u.nombre_completo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Crear Tarea</button>
+                        <a href="{{ url_for('tasks.list_tasks') }}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block quill_js %}
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const quill = new Quill('#quill-editor', {
+    theme: 'snow',
+    placeholder: 'Detalles de la tarea...',
+    modules: {
+        toolbar: [
+            [{ 'header': [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            ['blockquote', 'code-block'],
+            ['link'],
+            ['clean']
+        ]
+    }
+});
+
+document.getElementById('taskForm').addEventListener('submit', function() {
+    const html = quill.root.innerHTML;
+    document.getElementById('descripcion').value = (html === '<p><br></p>') ? '' : html;
+});
+</script>
+{% endblock %}

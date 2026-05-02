@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Editar: {{ task.nombre }} — Bitácora{% endblock %}
+
+{% block quill_css %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('tasks.list_tasks') }}">Tareas</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('tasks.detail', task_id=task.id) }}">#{{ task.id }}</a></li>
+        <li class="breadcrumb-item active">Editar</li>
+    </ol>
+</nav>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-pencil me-2 text-accent"></i>Editar Tarea #{{ task.id }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('tasks.edit', task_id=task.id) }}" id="taskForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label fw-medium">Nombre *</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" value="{{ task.nombre }}" required maxlength="200">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Descripción</label>
+                        <div id="quill-editor" class="quill-container">{{ task.descripcion|safe if task.descripcion else '' }}</div>
+                        <input type="hidden" name="descripcion" id="descripcion">
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="fecha_hora_inicio" class="form-label fw-medium">Inicio *</label>
+                            <input type="datetime-local" class="form-control" id="fecha_hora_inicio" name="fecha_hora_inicio" value="{{ task.fecha_hora_inicio.strftime('%Y-%m-%dT%H:%M') if task.fecha_hora_inicio else '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="fecha_hora_fin_estimada" class="form-label fw-medium">Fin estimado</label>
+                            <input type="datetime-local" class="form-control" id="fecha_hora_fin_estimada" name="fecha_hora_fin_estimada" value="{{ task.fecha_hora_fin_estimada.strftime('%Y-%m-%dT%H:%M') if task.fecha_hora_fin_estimada else '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="fecha_hora_fin_real" class="form-label fw-medium">Fin real</label>
+                            <input type="datetime-local" class="form-control" id="fecha_hora_fin_real" name="fecha_hora_fin_real" value="{{ task.fecha_hora_fin_real.strftime('%Y-%m-%dT%H:%M') if task.fecha_hora_fin_real else '' }}">
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <label for="estado" class="form-label fw-medium">Estado</label>
+                            <select class="form-select" id="estado" name="estado">
+                                {% for val, label in estados %}
+                                <option value="{{ val }}" {% if task.estado == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="prioridad" class="form-label fw-medium">Prioridad</label>
+                            <select class="form-select" id="prioridad" name="prioridad">
+                                {% for val, label in prioridades %}
+                                <option value="{{ val }}" {% if task.prioridad == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="usuario_asignado_id" class="form-label fw-medium">Asignado a *</label>
+                            <select class="form-select" id="usuario_asignado_id" name="usuario_asignado_id" required>
+                                {% for u in users %}
+                                <option value="{{ u.id }}" {% if task.usuario_asignado_id == u.id %}selected{% endif %}>{{ u.nombre_completo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Guardar</button>
+                        <a href="{{ url_for('tasks.detail', task_id=task.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block quill_js %}
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const quill = new Quill('#quill-editor', {
+    theme: 'snow',
+    placeholder: 'Detalles de la tarea...',
+    modules: {
+        toolbar: [
+            [{ 'header': [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            ['blockquote', 'code-block'],
+            ['link'],
+            ['clean']
+        ]
+    }
+});
+document.getElementById('taskForm').addEventListener('submit', function() {
+    const html = quill.root.innerHTML;
+    document.getElementById('descripcion').value = (html === '<p><br></p>') ? '' : html;
+});
+</script>
+{% endblock %}

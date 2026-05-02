@@ -1,0 +1,66 @@
+# ============================================
+# Bitácora SaaS — Docker Compose
+# Servicios: web (Flask+Gunicorn), db (PostgreSQL), nginx
+# ============================================
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: bitacora_db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: bitacora_db
+      POSTGRES_USER: bitacora_user
+      POSTGRES_PASSWORD: bitacora_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - bitacora_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bitacora_user -d bitacora_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: bitacora_web
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      FLASK_CONFIG: production
+      SECRET_KEY: ${SECRET_KEY:-bitacora-secret-key-change-in-production}
+      DATABASE_URL: postgresql://bitacora_user:bitacora_pass@db:5432/bitacora_db
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-generate-a-real-fernet-key}
+    ports:
+      - "5000:5000"
+    volumes:
+      - uploads:/app/uploads
+    networks:
+      - bitacora_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: bitacora_nginx
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - bitacora_net
+
+networks:
+  bitacora_net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  uploads:
