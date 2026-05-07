@@ -224,7 +224,7 @@ def generate_ai_analysis(empresa_id, context_type='empresa', context_id=None):
     Returns:
         dict con análisis y estadísticas.
     """
-    company = Company.query.get(empresa_id)
+    company = db.session.get(Company, empresa_id)
     if not company:
         return {'error': 'Empresa no encontrada'}
 

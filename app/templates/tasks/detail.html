@@ -18,25 +18,30 @@
                     <div>
                         <h1 class="h4 fw-bold mb-2">{{ task.nombre }}</h1>
                         <div class="d-flex flex-wrap gap-2">
-                            <span class="badge bg-{{ task.estado_badge }} fs-6">{{ task.estado_label }}</span>
-                            <span class="badge bg-{{ task.prioridad_badge }}-subtle text-{{ task.prioridad_badge }} fs-6">
+                            <span class="badge bg-{{ task.estado_badge }} fs-6"
+                                  data-bs-toggle="tooltip" title="Estado actual: {{ task.estado_label }}.">{{ task.estado_label }}</span>
+                            <span class="badge bg-{{ task.prioridad_badge }}-subtle text-{{ task.prioridad_badge }} fs-6"
+                                  data-bs-toggle="tooltip" title="Prioridad: {{ task.prioridad_label }}.">
                                 <i class="bi bi-flag-fill me-1"></i>{{ task.prioridad_label }}
                             </span>
                         </div>
                     </div>
                     <div class="d-flex gap-2">
                         {% if current_user.has_role('administrador', 'manager') %}
-                        <a href="{{ url_for('tasks.edit', task_id=task.id) }}" class="btn btn-outline-primary btn-sm">
+                        <a href="{{ url_for('tasks.edit', task_id=task.id) }}" class="btn btn-outline-primary btn-sm"
+                           data-bs-toggle="tooltip" title="Editar la información de la tarea.">
                             <i class="bi bi-pencil me-1"></i> Editar
                         </a>
                         {% endif %}
                         {% if current_user.has_role('administrador', 'manager', 'visor') %}
-                        <a href="{{ url_for('reports.task_report', task_id=task.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank">
+                        <a href="{{ url_for('reports.task_report', task_id=task.id) }}" class="btn btn-outline-secondary btn-sm" target="_blank"
+                           data-bs-toggle="tooltip" title="Generar y descargar un reporte PDF de la tarea.">
                             <i class="bi bi-file-pdf me-1"></i> PDF
                         </a>
                         {% endif %}
                         {% if current_user.has_role('administrador', 'manager', 'usuario') %}
-                        <a href="{{ url_for('reports.share_whatsapp', task_id=task.id) }}" class="btn btn-outline-success btn-sm" target="_blank">
+                        <a href="{{ url_for('reports.share_whatsapp', task_id=task.id) }}" class="btn btn-outline-success btn-sm" target="_blank"
+                           data-bs-toggle="tooltip" title="Compartir los detalles de la tarea por WhatsApp.">
                             <i class="bi bi-whatsapp me-1"></i>
                         </a>
                         {% endif %}

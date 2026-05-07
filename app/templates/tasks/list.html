@@ -12,12 +12,14 @@
     </div>
     <div class="d-flex gap-2">
         {% if current_user.has_role('administrador', 'manager', 'visor') %}
-        <a href="{{ url_for('api.export_csv', estado=filter_estado, prioridad=filter_prioridad) }}" class="btn btn-outline-secondary btn-sm">
+        <a href="{{ url_for('api.export_csv', estado=filter_estado, prioridad=filter_prioridad, usuario=filter_usuario, grupo=filter_grupo, search=filter_search) }}" class="btn btn-outline-secondary btn-sm"
+           data-bs-toggle="tooltip" title="Descargar un archivo CSV con todas las tareas filtradas.">
             <i class="bi bi-filetype-csv me-1"></i> Exportar CSV
         </a>
         {% endif %}
         {% if current_user.has_role('administrador', 'manager') %}
-        <a href="{{ url_for('tasks.create') }}" class="btn btn-primary">
+        <a href="{{ url_for('tasks.create') }}" class="btn btn-primary"
+           data-bs-toggle="tooltip" title="Crear una nueva tarea en el sistema. Abre el formulario de creación.">
             <i class="bi bi-plus-lg me-1"></i> Nueva Tarea
         </a>
         {% endif %}
@@ -31,11 +33,13 @@
             <div class="col-md-3">
                 <label class="form-label small fw-medium">Buscar</label>
                 <input type="text" class="form-control form-control-sm" name="search"
-                       value="{{ filter_search }}" placeholder="Nombre de tarea...">
+                       value="{{ filter_search }}" placeholder="Nombre de tarea..."
+                       data-bs-toggle="tooltip" title="Buscar tareas por nombre o descripción.">
             </div>
             <div class="col-md-2">
                 <label class="form-label small fw-medium">Estado</label>
-                <select class="form-select form-select-sm" name="estado">
+                <select class="form-select form-select-sm" name="estado"
+                        data-bs-toggle="tooltip" title="Filtrar tareas por su estado actual (pendiente, en progreso, etc.).">
                     <option value="">Todos</option>
                     {% for val, label in estados %}
                     <option value="{{ val }}" {% if filter_estado == val %}selected{% endif %}>{{ label }}</option>
@@ -44,7 +48,8 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label small fw-medium">Prioridad</label>
-                <select class="form-select form-select-sm" name="prioridad">
+                <select class="form-select form-select-sm" name="prioridad"
+                        data-bs-toggle="tooltip" title="Filtrar tareas por nivel de prioridad (baja, media, alta).">
                     <option value="">Todas</option>
                     {% for val, label in prioridades %}
                     <option value="{{ val }}" {% if filter_prioridad == val %}selected{% endif %}>{{ label }}</option>
@@ -53,22 +58,76 @@
             </div>
             <div class="col-md-3">
                 <label class="form-label small fw-medium">Usuario asignado</label>
-                <select class="form-select form-select-sm" name="usuario">
+                <select class="form-select form-select-sm" name="usuario"
+                        data-bs-toggle="tooltip" title="Filtrar tareas por el usuario asignado.">
                     <option value="">Todos</option>
                     {% for u in users %}
                     <option value="{{ u.id }}" {% if filter_usuario == u.id|string %}selected{% endif %}>{{ u.nombre_completo }}</option>
                     {% endfor %}
                 </select>
             </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-medium">Grupo</label>
+                <select class="form-select form-select-sm" name="grupo"
+                        data-bs-toggle="popover" data-bs-title="Filtro por grupo"
+                        data-bs-content="<p>Segmenta la operación por equipo para revisar carga, atrasos y exportaciones más útiles.</p><p><strong>Ventaja SaaS:</strong> permite vender control operativo por área, no solo una lista general de tareas.</p>">
+                    <option value="">Todos</option>
+                    {% for g in groups %}
+                    <option value="{{ g.id }}" {% if filter_grupo == g.id|string %}selected{% endif %}>{{ g.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="col-md-2 d-flex gap-2">
-                <button type="submit" class="btn btn-sm btn-primary flex-grow-1">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1"
+                        data-bs-toggle="tooltip" title="Aplicar los filtros seleccionados a la lista de tareas.">
                     <i class="bi bi-funnel me-1"></i> Filtrar
                 </button>
-                <a href="{{ url_for('tasks.list_tasks') }}" class="btn btn-sm btn-outline-secondary" title="Limpiar filtros">
+                <a href="{{ url_for('tasks.list_tasks') }}" class="btn btn-sm btn-outline-secondary"
+                   data-bs-toggle="tooltip" title="Limpiar todos los filtros y mostrar todas las tareas.">
                     <i class="bi bi-x-lg"></i>
                 </a>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Operational Pulse -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="stat-card stat-card-urgent task-pulse-card"
+             data-bs-toggle="popover" data-bs-title="Tareas vencidas"
+             data-bs-content="<p>Tareas abiertas cuya fecha estimada ya pasó.</p><p><strong>Acción:</strong> prioriza contacto con responsable, cambio de fecha o cierre real. Esto es fuga directa de confianza ante cliente.</p>">
+            <div class="stat-icon"><i class="bi bi-exclamation-octagon"></i></div>
+            <div class="stat-value">{{ pulse.overdue }}</div>
+            <div class="stat-label">Vencidas</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card stat-card-pendiente task-pulse-card"
+             data-bs-toggle="popover" data-bs-title="Próximas 48 horas"
+             data-bs-content="<p>Tareas abiertas que vencen dentro de las siguientes 48 horas.</p><p><strong>Acción:</strong> revisa si tienen avance suficiente antes de que se vuelvan urgencias.</p>">
+            <div class="stat-icon"><i class="bi bi-clock-history"></i></div>
+            <div class="stat-value">{{ pulse.due_soon }}</div>
+            <div class="stat-label">Próx. 48h</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card stat-card-total task-pulse-card"
+             data-bs-toggle="popover" data-bs-title="Alta prioridad abierta"
+             data-bs-content="<p>Tareas abiertas marcadas como prioridad alta dentro de los filtros actuales.</p><p><strong>Acción:</strong> confirma dueño, fecha y bloqueo. Alta prioridad sin responsable activo es ruido caro.</p>">
+            <div class="stat-icon"><i class="bi bi-lightning-charge"></i></div>
+            <div class="stat-value">{{ pulse.high_priority }}</div>
+            <div class="stat-label">Alta prioridad</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card stat-card-pausada task-pulse-card"
+             data-bs-toggle="popover" data-bs-title="Sin avance visible"
+             data-bs-content="<p>Tareas de esta página con 0% de avance registrado.</p><p><strong>Acción:</strong> pide primer avance o cancela tareas que no arrancaron. Ayuda a limpiar la operación rápido.</p>">
+            <div class="stat-icon"><i class="bi bi-activity"></i></div>
+            <div class="stat-value">{{ pulse.without_progress }}</div>
+            <div class="stat-label">Sin avance</div>
+        </div>
     </div>
 </div>
 
@@ -91,8 +150,24 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for task in tasks %}
-                    <tr class="task-row" onclick="window.location='{{ url_for('tasks.detail', task_id=task.id) }}'">
+                    {% for row in task_rows %}
+                    {% set task = row.task %}
+                    {% if row.separator %}
+                    <tr class="task-time-separator-row">
+                        <td colspan="8">
+                            <div class="task-time-separator">
+                                <span class="task-time-separator-line"></span>
+                                <span class="task-time-separator-label">
+                                    <i class="bi bi-hourglass-split"></i>
+                                    Pasaron {{ row.separator.label }} desde la actualización anterior
+                                </span>
+                                <span class="task-time-separator-detail">{{ row.separator.detail }}</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <tr class="task-row" onclick="window.location='{{ url_for('tasks.detail', task_id=task.id) }}'"
+                        data-bs-toggle="tooltip" title="Haz clic para ver los detalles completos de esta tarea.">
                         <td class="ps-4 fw-medium">{{ task.id }}</td>
                         <td>
                             <div class="fw-medium">{{ task.nombre | truncate(45) }}</div>
@@ -101,12 +176,12 @@
                             {% endif %}
                         </td>
                         <td>
-                            <span class="badge bg-{{ task.estado_badge }}">{{ task.estado_label }}</span>
+                            <span class="badge bg-{{ task.estado_badge }}"
+                                  data-bs-toggle="tooltip" title="Estado actual de la tarea: {{ task.estado_label }}.">{{ task.estado_label }}</span>
                         </td>
                         <td>
-                            <span class="badge bg-{{ task.prioridad_badge }}-subtle text-{{ task.prioridad_badge }}">
-                                {{ task.prioridad_label }}
-                            </span>
+                            <span class="badge bg-{{ task.prioridad_badge }}-subtle text-{{ task.prioridad_badge }}"
+                                  data-bs-toggle="tooltip" title="Nivel de prioridad: {{ task.prioridad_label }}.">{{ task.prioridad_label }}</span>
                         </td>
                         <td class="text-muted small">{{ task.usuario_asignado.nombre_completo | truncate(20) }}</td>
                         <td>
@@ -131,21 +206,24 @@
             <nav>
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('tasks.list_tasks', page=pagination.prev_num, estado=filter_estado, prioridad=filter_prioridad, usuario=filter_usuario, search=filter_search) }}">
+                        <a class="page-link" href="{{ url_for('tasks.list_tasks', page=pagination.prev_num, estado=filter_estado, prioridad=filter_prioridad, usuario=filter_usuario, grupo=filter_grupo, search=filter_search) }}"
+                           data-bs-toggle="tooltip" title="Ir a la página anterior.">
                             <i class="bi bi-chevron-left"></i>
                         </a>
                     </li>
                     {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                         {% if p %}
                         <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                            <a class="page-link" href="{{ url_for('tasks.list_tasks', page=p, estado=filter_estado, prioridad=filter_prioridad, usuario=filter_usuario, search=filter_search) }}">{{ p }}</a>
+                            <a class="page-link" href="{{ url_for('tasks.list_tasks', page=p, estado=filter_estado, prioridad=filter_prioridad, usuario=filter_usuario, grupo=filter_grupo, search=filter_search) }}"
+                               data-bs-toggle="tooltip" title="Ir a la página {{ p }}.">{{ p }}</a>
                         </li>
                         {% else %}
                         <li class="page-item disabled"><span class="page-link">…</span></li>
                         {% endif %}
                     {% endfor %}
                     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('tasks.list_tasks', page=pagination.next_num, estado=filter_estado, prioridad=filter_prioridad, usuario=filter_usuario, search=filter_search) }}">
+                        <a class="page-link" href="{{ url_for('tasks.list_tasks', page=pagination.next_num, estado=filter_estado, prioridad=filter_prioridad, usuario=filter_usuario, grupo=filter_grupo, search=filter_search) }}"
+                           data-bs-toggle="tooltip" title="Ir a la página siguiente.">
                             <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>

@@ -27,25 +27,22 @@
             <ul class="nav nav-tabs mb-4" id="companyTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general"
-                            type="button" role="tab">
+                            type="button" role="tab"
+                            data-bs-toggle-tooltip="tooltip" title="Configura la información básica de la empresa, incluyendo datos fiscales y de contacto.">
                         <i class="bi bi-info-circle me-1"></i> General
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="fiscal-tab" data-bs-toggle="tab" data-bs-target="#fiscal"
-                            type="button" role="tab">
-                        <i class="bi bi-receipt me-1"></i> Fiscal
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
                     <button class="nav-link" id="email-tab" data-bs-toggle="tab" data-bs-target="#email"
-                            type="button" role="tab">
+                            type="button" role="tab"
+                            data-bs-toggle="tooltip" title="Configura los ajustes de envío de correos electrónicos.">
                         <i class="bi bi-envelope me-1"></i> Email
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="ai-tab" data-bs-toggle="tab" data-bs-target="#ai"
-                            type="button" role="tab">
+                            type="button" role="tab"
+                            data-bs-toggle="tooltip" title="Configura las claves y ajustes para servicios de inteligencia artificial.">
                         <i class="bi bi-robot me-1"></i> IA
                     </button>
                 </li>
@@ -54,71 +51,151 @@
             <div class="tab-content" id="companyTabContent">
                 <!-- Tab: General -->
                 <div class="tab-pane fade show active" id="general" role="tabpanel">
+                    <div class="fiscal-source-panel mb-4">
+                        <div class="fiscal-source-icon">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </div>
+                        <div class="fiscal-source-copy">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                <h5 class="mb-0 fw-semibold">Constancia de Situación Fiscal</h5>
+                                {% if company and company.constancia_fiscal_path %}
+                                <span class="badge bg-success-subtle text-success">
+                                    <i class="bi bi-check-circle"></i> CSF cargada
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning-subtle text-warning">
+                                    <i class="bi bi-exclamation-circle"></i> CSF pendiente
+                                </span>
+                                {% endif %}
+                                {% if company and company.razon_social and company.app_key %}
+                                <span class="badge bg-success-subtle text-success">
+                                    <i class="bi bi-key"></i> APP-Key capturada
+                                </span>
+                                {% elif company and company.razon_social %}
+                                <span class="badge bg-danger-subtle text-danger">
+                                    <i class="bi bi-lock"></i> APP-Key pendiente
+                                </span>
+                                {% endif %}
+                            </div>
+                            <p class="text-muted mb-0">
+                                La CSF es la fuente oficial para RFC, razón social, régimen y domicilio fiscal.
+                                Al guardarla, esos campos se actualizan desde el PDF y permanecen bloqueados para captura manual.
+                            </p>
+                        </div>
+                        <div class="fiscal-source-upload">
+                            <label for="constancia_fiscal" class="form-label small fw-medium">Subir CSF PDF</label>
+                            <input type="file" class="form-control" id="constancia_fiscal" name="constancia_fiscal"
+                                   accept="application/pdf,.pdf"
+                                   data-bs-toggle="tooltip" title="Selecciona un archivo PDF de la Constancia de Situación Fiscal.">
+                            <div class="form-text" id="constanciaFiscalHelp">
+                                {% if current_user.is_superuser %}
+                                Subir una CSF válida genera o recalcula la APP-Key.
+                                {% else %}
+                                Sube una CSF válida para registrar los datos fiscales oficiales.
+                                {% endif %}
+                                <br>
+                                El PDF debe permitir lectura de texto y contener RFC y razón social fiscal.
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="nombre" class="form-label">Nombre de la Empresa <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="nombre" name="nombre" required
-                                   value="{{ company.nombre if company else '' }}" placeholder="Mi Empresa S.A. de C.V.">
+                                   value="{{ company.nombre if company and company.nombre else '' }}" placeholder="Mi Empresa S.A. de C.V."
+                                   data-bs-toggle="popover" title="Nombre de la Empresa" data-bs-content="Ingresa el nombre oficial de la empresa tal como aparece en sus documentos legales. Este nombre se utilizará en reportes, facturas y en toda la interfaz del sistema." data-bs-html="true">
                         </div>
                         <div class="col-md-6">
                             <label for="representante_legal" class="form-label">Representante Legal</label>
                             <input type="text" class="form-control" id="representante_legal" name="representante_legal"
-                                   value="{{ company.representante_legal if company else '' }}">
+                                   value="{{ company.representante_legal if company and company.representante_legal else '' }}"
+                                   data-bs-toggle="popover" title="Representante Legal" data-bs-content="Nombre completo del representante legal de la empresa. Esta información es opcional pero útil para documentos oficiales.">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="rfc" class="form-label">RFC</label>
+                            <input type="text" class="form-control fiscal-autofill-field" id="rfc" maxlength="20"
+                                   value="{{ company.rfc if company and company.rfc else '' }}" readonly
+                                   data-bs-toggle="popover" title="RFC" data-bs-content="Registro Federal de Contribuyentes. Este campo se llena automáticamente al subir la Constancia de Situación Fiscal (CSF). Es de solo lectura para evitar errores de captura." data-bs-html="true">
+                        </div>
+                        <div class="col-md-8">
+                            <label for="razon_social" class="form-label">Razón Social Fiscal</label>
+                            <input type="text" class="form-control fiscal-autofill-field" id="razon_social"
+                                   value="{{ company.razon_social if company and company.razon_social else '' }}" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="regimen_fiscal" class="form-label">Régimen Fiscal</label>
+                            <input type="text" class="form-control fiscal-autofill-field" id="regimen_fiscal"
+                                   value="{{ company.regimen_fiscal if company and company.regimen_fiscal else '' }}" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="app_key" class="form-label">APP-Key</label>
+                            <input type="text" class="form-control app-key-field" id="app_key"
+                                   name="app_key"
+                                   value="{{ company.app_key if company and company.app_key else '' }}"
+                                   placeholder="KMR-XXXXX-XXXXX-XXXXX-XXXXX"
+                                   maxlength="27"
+                                   pattern="KMR-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}"
+                                   autocomplete="off"
+                                   {% if current_user.is_superuser %}readonly{% endif %}
+                                   data-bs-toggle="tooltip" title="Clave única de la aplicación para habilitar funciones avanzadas.">
+                            <small class="text-muted" id="appKeyHelp">
+                                {% if current_user.is_superuser %}
+                                Se genera automáticamente desde la razón social fiscal detectada en la CSF.
+                                {% else %}
+                                Captura la APP-Key emitida por PC y Sistemas Mosri. Sin una clave válida, el sistema bloquea las demás funciones.
+                                {% endif %}
+                            </small>
                         </div>
                         <div class="col-12">
-                            <label for="direccion" class="form-label">Dirección</label>
-                            <textarea class="form-control" id="direccion" name="direccion" rows="2">{{ company.direccion if company else '' }}</textarea>
+                            <label for="direccion" class="form-label">Domicilio Fiscal</label>
+                            <textarea class="form-control fiscal-autofill-field" id="direccion" rows="2" readonly>{{ company.direccion if company and company.direccion else '' }}</textarea>
                         </div>
                         <div class="col-md-4">
                             <label for="telefono" class="form-label">Teléfono</label>
                             <input type="tel" class="form-control" id="telefono" name="telefono"
-                                   value="{{ company.telefono if company else '' }}">
+                                   value="{{ company.telefono if company and company.telefono else '' }}"
+                                   data-bs-toggle="tooltip" title="Número de teléfono de contacto de la empresa.">
                         </div>
                         <div class="col-md-4">
                             <label for="email_contacto" class="form-label">Email de Contacto</label>
                             <input type="email" class="form-control" id="email_contacto" name="email_contacto"
-                                   value="{{ company.email_contacto if company else '' }}">
+                                   value="{{ company.email_contacto if company and company.email_contacto else '' }}"
+                                   data-bs-toggle="tooltip" title="Correo electrónico principal de contacto de la empresa.">
                         </div>
                         <div class="col-md-4">
                             <label for="sitio_web" class="form-label">Sitio Web</label>
                             <input type="url" class="form-control" id="sitio_web" name="sitio_web"
-                                   value="{{ company.sitio_web if company else '' }}" placeholder="https://">
+                                   value="{{ company.sitio_web if company and company.sitio_web else '' }}" placeholder="https://"
+                                   data-bs-toggle="tooltip" title="URL del sitio web de la empresa.">
                         </div>
                         <div class="col-md-6">
                             <label for="logo" class="form-label">Logo de la Empresa</label>
-                            <input type="file" class="form-control" id="logo" name="logo" accept="image/*">
-                            {% if company and company.logo_path %}
-                            <small class="text-muted">Logo actual cargado. Sube uno nuevo para reemplazar.</small>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab: Fiscal -->
-                <div class="tab-pane fade" id="fiscal" role="tabpanel">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="rfc" class="form-label">RFC</label>
-                            <input type="text" class="form-control" id="rfc" name="rfc" maxlength="20"
-                                   value="{{ company.rfc if company else '' }}" placeholder="XAXX010101000"
-                                   style="text-transform: uppercase;">
-                        </div>
-                        <div class="col-md-8">
-                            <label for="razon_social" class="form-label">Razón Social</label>
-                            <input type="text" class="form-control" id="razon_social" name="razon_social"
-                                   value="{{ company.razon_social if company else '' }}">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="regimen_fiscal" class="form-label">Régimen Fiscal</label>
-                            <input type="text" class="form-control" id="regimen_fiscal" name="regimen_fiscal"
-                                   value="{{ company.regimen_fiscal if company else '' }}">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="constancia_fiscal" class="form-label">Constancia de Situación Fiscal (PDF)</label>
-                            <input type="file" class="form-control" id="constancia_fiscal" name="constancia_fiscal" accept=".pdf">
-                            {% if company and company.constancia_fiscal_path %}
-                            <small class="text-success"><i class="bi bi-check-circle me-1"></i>Constancia cargada.</small>
-                            {% endif %}
+                            <div class="company-logo-uploader">
+                                <div class="company-logo-preview">
+                                    {% if company and company.logo_path %}
+                                    <img src="{{ image_url(company.logo_path) }}" alt="Logo actual de {{ company.nombre }}" id="logoPreview">
+                                    {% else %}
+                                    <div class="company-logo-placeholder" id="logoPlaceholder">
+                                        <i class="bi bi-image"></i>
+                                        <span>Vista previa</span>
+                                    </div>
+                                    <img src="" alt="Vista previa del logo" id="logoPreview" hidden>
+                                    {% endif %}
+                                </div>
+                                <div class="min-w-0">
+                                    <input type="file" class="form-control" id="logo" name="logo" accept="image/*"
+                                           data-bs-toggle="tooltip" title="Sube una imagen para el logo de la empresa. Se optimizará en WebP y se generará favicon ICO.">
+                                    <small class="text-muted">
+                                        {% if company and company.logo_path %}
+                                        Logo actual visible. Sube uno nuevo para reemplazarlo.
+                                        {% else %}
+                                        Recomendado: PNG/JPG cuadrado o transparente.
+                                        {% endif %}
+                                        Se convertirá a WebP e ICO.
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -135,12 +212,14 @@
                         <div class="col-md-6">
                             <label for="mail_server" class="form-label">Servidor SMTP</label>
                             <input type="text" class="form-control" id="mail_server" name="mail_server"
-                                   value="{{ company.mail_server if company else '' }}" placeholder="smtp.gmail.com">
+                                   value="{{ company.mail_server if company and company.mail_server else '' }}" placeholder="smtp.gmail.com"
+                                   data-bs-toggle="tooltip" title="Dirección del servidor SMTP para envío de correos.">
                         </div>
                         <div class="col-md-3">
                             <label for="mail_port" class="form-label">Puerto</label>
                             <input type="number" class="form-control" id="mail_port" name="mail_port"
-                                   value="{{ company.mail_port if company else 587 }}">
+                                   value="{{ company.mail_port if company and company.mail_port else 587 }}"
+                                   data-bs-toggle="tooltip" title="Puerto del servidor SMTP (ej: 587 para TLS, 465 para SSL).">
                         </div>
                         <div class="col-md-3 d-flex align-items-end gap-3">
                             <div class="form-check form-switch">
@@ -157,12 +236,14 @@
                         <div class="col-md-6">
                             <label for="mail_username" class="form-label">Usuario SMTP</label>
                             <input type="text" class="form-control" id="mail_username" name="mail_username"
-                                   value="{{ company.mail_username if company else '' }}">
+                                   value="{{ company.mail_username if company and company.mail_username else '' }}"
+                                   data-bs-toggle="tooltip" title="Nombre de usuario para autenticación en el servidor SMTP.">
                         </div>
                         <div class="col-md-6">
                             <label for="mail_password" class="form-label">Contraseña SMTP</label>
                             <input type="password" class="form-control" id="mail_password" name="mail_password"
-                                   placeholder="{{ '••••••••' if company and company._mail_password else '' }}">
+                                   placeholder="{{ '••••••••' if company and company._mail_password else '' }}"
+                                   data-bs-toggle="tooltip" title="Contraseña para autenticación en el servidor SMTP.">
                             {% if company and company._mail_password %}
                             <small class="text-muted">Dejar en blanco para mantener la actual.</small>
                             {% endif %}
@@ -170,7 +251,8 @@
                         <div class="col-md-6">
                             <label for="mail_default_sender" class="form-label">Email Remitente</label>
                             <input type="email" class="form-control" id="mail_default_sender" name="mail_default_sender"
-                                   value="{{ company.mail_default_sender if company else '' }}" placeholder="noreply@miempresa.com">
+                                   value="{{ company.mail_default_sender if company and company.mail_default_sender else '' }}" placeholder="noreply@miempresa.com"
+                                   data-bs-toggle="tooltip" title="Dirección de email que aparecerá como remitente en los correos enviados.">
                         </div>
                     </div>
                 </div>
@@ -186,7 +268,8 @@
                         </div>
                         <div class="col-md-4">
                             <label for="ai_provider" class="form-label">Proveedor de IA</label>
-                            <select class="form-select" id="ai_provider" name="ai_provider">
+                            <select class="form-select" id="ai_provider" name="ai_provider"
+                                    data-bs-toggle="tooltip" title="Selecciona el servicio de IA para análisis de productividad.">
                                 <option value="">— Sin IA —</option>
                                 {% for value, label in ai_providers %}
                                 <option value="{{ value }}" {{ 'selected' if company and company.ai_provider == value }}>{{ label }}</option>
@@ -196,7 +279,8 @@
                         <div class="col-md-8">
                             <label for="ai_api_key" class="form-label">API Key</label>
                             <input type="password" class="form-control" id="ai_api_key" name="ai_api_key"
-                                   placeholder="{{ '••••••••' if company and company._ai_api_key else 'sk-...' }}">
+                                   placeholder="{{ '••••••••' if company and company._ai_api_key else 'sk-...' }}"
+                                   data-bs-toggle="tooltip" title="Clave de API para acceder al servicio de IA seleccionado.">
                             {% if company and company._ai_api_key %}
                             <small class="text-muted">Dejar en blanco para mantener la actual.</small>
                             {% endif %}
@@ -204,8 +288,9 @@
                         <div class="col-md-6">
                             <label for="ai_model" class="form-label">Modelo</label>
                             <input type="text" class="form-control" id="ai_model" name="ai_model"
-                                   value="{{ company.ai_model if company else '' }}"
-                                   placeholder="gpt-4o-mini / gemini-1.5-flash / claude-3-haiku-20240307">
+                                   value="{{ company.ai_model if company and company.ai_model else '' }}"
+                                   placeholder="gpt-4o-mini / gemini-1.5-flash / claude-3-haiku-20240307"
+                                   data-bs-toggle="tooltip" title="Especifica el modelo de IA a utilizar. Si se deja vacío, se usará el modelo por defecto.">
                             <small class="text-muted">Dejar vacío para usar el modelo por defecto del proveedor.</small>
                         </div>
                     </div>
@@ -214,14 +299,65 @@
 
             <hr class="my-4">
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary"
+                        data-bs-toggle="popover" title="Guardar Empresa" data-bs-content="<i class='bi bi-check-circle'></i> Al hacer clic, se guardarán todos los cambios realizados en el formulario. Si es una nueva empresa, se creará un registro en el sistema con los datos proporcionados." data-bs-html="true">
                     <i class="bi bi-check-lg me-1"></i> {{ 'Guardar Cambios' if company else 'Crear Empresa' }}
                 </button>
                 {% if current_user.is_superuser %}
-                <a href="{{ url_for('companies.list_companies') }}" class="btn btn-outline-secondary">Cancelar</a>
+                <a href="{{ url_for('companies.list_companies') }}" class="btn btn-outline-secondary"
+                   data-bs-toggle="tooltip" title="Cancelar los cambios y volver a la lista de empresas.">
+                    Cancelar
+                </a>
                 {% endif %}
             </div>
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const constanciaInput = document.getElementById('constancia_fiscal');
+const constanciaHelp = document.getElementById('constanciaFiscalHelp');
+if (constanciaInput && constanciaHelp) {
+    constanciaInput.addEventListener('change', () => {
+        const file = constanciaInput.files && constanciaInput.files[0];
+        if (!file) { return; }
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            constanciaInput.setCustomValidity('La CSF debe ser un PDF.');
+            constanciaHelp.textContent = 'La CSF debe ser un PDF válido.';
+            return;
+        }
+        constanciaInput.setCustomValidity('');
+        constanciaHelp.textContent = `${file.name} se procesará al guardar para actualizar datos fiscales y generar APP-Key cuando aplique.`;
+        document.querySelectorAll('.fiscal-autofill-field').forEach((field) => {
+            field.classList.add('is-fiscal-pending');
+        });
+    });
+}
+
+const appKeyInput = document.getElementById('app_key');
+if (appKeyInput && !appKeyInput.readOnly) {
+    appKeyInput.addEventListener('input', () => {
+        appKeyInput.value = appKeyInput.value.toUpperCase();
+    });
+}
+
+const logoInput = document.getElementById('logo');
+const logoPreview = document.getElementById('logoPreview');
+const logoPlaceholder = document.getElementById('logoPlaceholder');
+if (logoInput && logoPreview) {
+    logoInput.addEventListener('change', () => {
+        const file = logoInput.files && logoInput.files[0];
+        if (!file) { return; }
+        const previewUrl = URL.createObjectURL(file);
+        logoPreview.src = previewUrl;
+        logoPreview.hidden = false;
+        if (logoPlaceholder) {
+            logoPlaceholder.hidden = true;
+        }
+        logoPreview.onload = () => URL.revokeObjectURL(previewUrl);
+    });
+}
+</script>
 {% endblock %}

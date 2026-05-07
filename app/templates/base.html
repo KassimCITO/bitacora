@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Bitácora — Sistema SaaS de gestión de tareas operativas multi-empresa">
+    <link rel="icon" href="{{ empresa_favicon_url }}" sizes="any">
     <title>{% block title %}Bitácora{% endblock %}</title>
 
     <!-- Bootstrap 5.3 CSS -->
@@ -17,12 +18,12 @@
     {% block extra_css %}{% endblock %}
     {% block quill_css %}{% endblock %}
 </head>
-<body>
+<body {% if empresa_logo_url %}style="--company-bg-logo: url('{{ empresa_logo_url }}');"{% endif %}>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg sticky-top" id="mainNavbar">
         <div class="container-fluid px-4">
             <a class="navbar-brand d-flex align-items-center gap-2" href="{{ url_for('dashboard.index') }}">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="32" class="navbar-logo">
+                <img src="{{ empresa_logo_url or url_for('static', filename='img/logo.png') }}" alt="Logo" height="32" class="navbar-logo">
                 <span class="brand-text">{{ app_name }}</span>
             </a>
 
@@ -85,7 +86,8 @@
                     {% endif %}
 
                     <!-- Theme Toggle -->
-                    <button class="btn btn-icon theme-toggle" id="themeToggle" title="Cambiar tema">
+                    <button class="btn btn-icon theme-toggle" id="themeToggle" title="Cambiar tema"
+                            data-bs-toggle="tooltip" data-bs-placement="bottom">
                         <i class="bi bi-sun-fill" id="themeIcon"></i>
                     </button>
 
@@ -160,5 +162,30 @@
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     {% block quill_js %}{% endblock %}
     {% block extra_js %}{% endblock %}
+
+    <!-- Initialize Tooltips and Popovers -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl, {
+                trigger: 'hover focus',
+                container: 'body'
+            });
+        });
+
+        // Initialize popovers
+        var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+        popoverTriggerList.map(function (popoverTriggerEl) {
+            return bootstrap.Popover.getOrCreateInstance(popoverTriggerEl, {
+                html: true,
+                trigger: popoverTriggerEl.dataset.bsTrigger || 'hover focus',
+                container: 'body',
+                customClass: popoverTriggerEl.dataset.bsCustomClass || 'popover-rich'
+            });
+        });
+    });
+    </script>
 </body>
 </html>

@@ -21,26 +21,31 @@
 
                     <div class="mb-3">
                         <label for="nombre_completo" class="form-label fw-medium">Nombre completo *</label>
-                        <input type="text" class="form-control" id="nombre_completo" name="nombre_completo" required maxlength="150">
+                        <input type="text" class="form-control" id="nombre_completo" name="nombre_completo" required maxlength="150"
+                               data-bs-toggle="tooltip" title="Ingresa el nombre completo del nuevo usuario.">
                     </div>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="username" class="form-label fw-medium">Usuario *</label>
-                            <input type="text" class="form-control" id="username" name="username" required maxlength="80">
+                            <input type="text" class="form-control" id="username" name="username" required maxlength="80"
+                                   data-bs-toggle="tooltip" title="Nombre de usuario único para iniciar sesión.">
                         </div>
                         <div class="col-md-6">
                             <label for="email" class="form-label fw-medium">Email *</label>
-                            <input type="email" class="form-control" id="email" name="email" required maxlength="120">
+                            <input type="email" class="form-control" id="email" name="email" required maxlength="120"
+                                   data-bs-toggle="tooltip" title="Correo electrónico del usuario para notificaciones.">
                         </div>
                     </div>
                     <div class="row g-3 mt-1">
                         <div class="col-md-6">
                             <label for="password" class="form-label fw-medium">Contraseña *</label>
-                            <input type="password" class="form-control" id="password" name="password" required minlength="6">
+                            <input type="password" class="form-control" id="password" name="password" required minlength="6"
+                                   data-bs-toggle="tooltip" title="Contraseña segura de al menos 6 caracteres.">
                         </div>
                         <div class="col-md-6">
                             <label for="role_id" class="form-label fw-medium">Rol *</label>
-                            <select class="form-select" id="role_id" name="role_id" required>
+                            <select class="form-select" id="role_id" name="role_id" required
+                                    data-bs-toggle="tooltip" title="Asigna un rol que define los permisos del usuario.">
                                 <option value="">Seleccionar...</option>
                                 {% for role in roles %}
                                 <option value="{{ role.id }}">{{ role.name | capitalize }} — {{ role.description }}</option>
@@ -50,8 +55,14 @@
                     </div>
 
                     <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Crear</button>
-                        <a href="{{ url_for('users.list_users') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary"
+                                data-bs-toggle="tooltip" title="Crear el nuevo usuario en el sistema.">
+                            <i class="bi bi-check-lg me-1"></i> Crear
+                        </button>
+                        <a href="{{ url_for('users.list_users') }}" class="btn btn-outline-secondary"
+                           data-bs-toggle="tooltip" title="Cancelar la creación y volver a la lista de usuarios.">
+                            Cancelar
+                        </a>
                     </div>
                 </form>
             </div>

@@ -4,7 +4,8 @@ Bitácora SaaS — Application Factory
 Multi-tenant, multi-empresa.
 """
 import os
-from flask import Flask, session
+from flask import Flask, flash, redirect, request, send_from_directory, session, url_for
+from flask_login import current_user
 from .config import config_map
 from .extensions import db, migrate, login_manager, csrf, mail
 
@@ -27,6 +28,14 @@ def create_app(config_name=None):
     login_manager.init_app(app)
     csrf.init_app(app)
     mail.init_app(app)
+
+    @app.after_request
+    def set_security_headers(response):
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+        response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+        response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+        return response
 
     # Registrar user_loader
     from .models.user import User
@@ -59,14 +68,50 @@ def create_app(config_name=None):
     # Exentar endpoints AJAX del CSRF cuando usan JSON
     csrf.exempt(analytics_bp)
 
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename):
+        """Sirve archivos subidos por nombre aleatorio desde el directorio controlado."""
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+    @app.before_request
+    def enforce_company_app_key():
+        if not current_user.is_authenticated or current_user.is_superuser:
+            return None
+
+        allowed_endpoints = {
+            'static',
+            'auth.login',
+            'auth.logout',
+            'companies.edit',
+            'uploaded_file',
+        }
+        if request.endpoint in allowed_endpoints:
+            return None
+
+        from .models.company import Company
+        from .services.app_key_service import company_has_valid_app_key
+
+        if not current_user.empresa_id:
+            return None
+
+        company = db.session.get(Company, current_user.empresa_id)
+        if company_has_valid_app_key(company, app.config.get('SECRET_KEY')):
+            return None
+
+        flash('APP-Key inválida o pendiente. Las funciones quedan bloqueadas hasta capturar una clave correcta.', 'danger')
+        return redirect(url_for('companies.edit', company_id=current_user.empresa_id))
+
     # Context processors — variables globales para templates
     @app.context_processor
     def inject_globals():
         from flask_login import current_user as cu
         from .models.company import Company
+        from .services.image_service import favicon_path_for_logo, image_url
 
         empresa_actual = None
         empresa_nombre = app.config.get('COMPANY_NAME', 'Bitácora')
+        empresa_logo_url = None
+        empresa_favicon_url = url_for('static', filename='img/logo.png')
 
         if cu.is_authenticated:
             empresa_id = None
@@ -79,10 +124,17 @@ def create_app(config_name=None):
                 empresa_actual = db.session.get(Company, empresa_id)
                 if empresa_actual:
                     empresa_nombre = empresa_actual.nombre
+                    if empresa_actual.logo_path:
+                        empresa_logo_url = image_url(empresa_actual.logo_path)
+                        favicon_path = favicon_path_for_logo(empresa_actual.logo_path)
+                        if favicon_path:
+                            empresa_favicon_url = image_url(favicon_path)
 
         return {
             'app_name': empresa_nombre,
             'empresa_actual': empresa_actual,
+            'empresa_logo_url': empresa_logo_url,
+            'empresa_favicon_url': empresa_favicon_url,
         }
 
     return app

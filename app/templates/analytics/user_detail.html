@@ -15,11 +15,18 @@
             <i class="bi bi-person-circle text-accent" style="font-size:1.4rem"></i>
         </div>
         <div>
-            <h1 class="h3 fw-bold mb-0">{{ user.nombre_completo }}</h1>
+            <h1 class="h3 fw-bold mb-0">{{ user.nombre_completo }}
+                <button type="button" class="help-popover ms-2"
+                        data-bs-toggle="popover" data-bs-title="Analítica individual"
+                        data-bs-content="<p>Esta vista ayuda a entender la carga y el avance de una persona sin perder contexto operativo.</p><p><strong>Uso correcto:</strong> cruza avance, cantidad de tareas y estados. Un avance bajo puede significar bloqueo, sobrecarga o tareas mal definidas.</p>"
+                        aria-label="Ayuda de analítica individual"><i class="bi bi-question-lg"></i></button>
+            </h1>
             <p class="text-muted mb-0">{{ user.role.name | capitalize }} · {{ stats.total }} tareas · Avance: {{ stats.avance_promedio }}%</p>
         </div>
     </div>
-    <button class="btn btn-primary" onclick="requestAiAnalysis('usuario', {{ user.id }})">
+    <button class="btn btn-primary" onclick="requestAiAnalysis('usuario', {{ user.id }})"
+            data-bs-toggle="popover" data-bs-title="Análisis IA del usuario"
+            data-bs-content="<p>Genera un diagnóstico de productividad con señales de avance, posibles bloqueos y recomendaciones de seguimiento.</p><p><strong>Úsalo para:</strong> coaching operativo, redistribución de tareas o seguimiento uno a uno.</p>">
         <i class="bi bi-robot me-1"></i> Análisis IA
     </button>
 </div>
@@ -28,7 +35,12 @@
     <div class="col-md-5">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-transparent border-0">
-                <h6 class="mb-0 fw-semibold">Distribución por Estado</h6>
+                <h6 class="mb-0 fw-semibold">Distribución por Estado
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Estados del usuario"
+                            data-bs-content="<p>Muestra el balance de tareas por estado para este usuario.</p><p><strong>Señal útil:</strong> muchas tareas en progreso pueden indicar multitarea excesiva; muchas pausadas suelen requerir intervención del manager.</p>"
+                            aria-label="Ayuda de estados del usuario"><i class="bi bi-question-lg"></i></button>
+                </h6>
             </div>
             <div class="card-body d-flex align-items-center justify-content-center">
                 <canvas id="chartEstados" style="max-height:250px"></canvas>
@@ -38,7 +50,12 @@
     <div class="col-md-7">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-transparent border-0">
-                <h6 class="mb-0 fw-semibold">Resumen</h6>
+                <h6 class="mb-0 fw-semibold">Resumen
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Resumen operativo"
+                            data-bs-content="<p>Conteo rápido por estado para validar si el usuario necesita apoyo, reasignación o cierre administrativo de tareas.</p><p><strong>Para SaaS:</strong> esta lectura convierte la app en una herramienta de control gerencial, no solo una lista de tareas.</p>"
+                            aria-label="Ayuda del resumen operativo"><i class="bi bi-question-lg"></i></button>
+                </h6>
             </div>
             <div class="card-body">
                 <div class="row g-3">
@@ -59,7 +76,10 @@
 <div class="card border-0 shadow-sm mb-4" id="aiPanel" style="display:none">
     <div class="card-header bg-transparent border-0 d-flex align-items-center justify-content-between">
         <h5 class="mb-0 fw-semibold"><i class="bi bi-robot me-2 text-accent"></i>Análisis IA <span class="badge bg-accent-subtle text-accent ms-2" id="aiProviderBadge"></span></h5>
-        <button class="btn btn-sm btn-outline-secondary" onclick="this.closest('.card').style.display='none'"><i class="bi bi-x-lg"></i></button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="this.closest('.card').style.display='none'"
+                data-bs-toggle="tooltip" title="Cerrar el panel de análisis IA.">
+            <i class="bi bi-x-lg"></i>
+        </button>
     </div>
     <div class="card-body" id="aiContent"></div>
 </div>

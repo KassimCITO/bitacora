@@ -24,6 +24,7 @@ class Company(db.Model):
     email_contacto = db.Column(db.String(150), nullable=True)
     sitio_web = db.Column(db.String(250), nullable=True)
     logo_path = db.Column(db.String(500), nullable=True)
+    app_key = db.Column(db.String(27), nullable=True, unique=True, index=True)
 
     # --- Información Fiscal ---
     rfc = db.Column(db.String(20), nullable=True)

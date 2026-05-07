@@ -16,11 +16,18 @@
             <i class="bi bi-people" style="color: {{ group.color }}; font-size: 1.4rem;"></i>
         </div>
         <div>
-            <h1 class="h3 fw-bold mb-0">{{ group.nombre }}</h1>
+            <h1 class="h3 fw-bold mb-0">{{ group.nombre }}
+                <button type="button" class="help-popover ms-2"
+                        data-bs-toggle="popover" data-bs-title="Analítica del grupo"
+                        data-bs-content="<p>Esta vista responde si el equipo está avanzando, quién necesita apoyo y qué estados están frenando el cierre.</p><p><strong>Acción recomendada:</strong> revisa el gráfico, abre usuarios críticos y usa IA para convertir los datos en una minuta de acciones.</p>"
+                        aria-label="Ayuda de analítica del grupo"><i class="bi bi-question-lg"></i></button>
+            </h1>
             <p class="text-muted mb-0">{{ stats.miembros }} miembros · {{ stats.total }} tareas</p>
         </div>
     </div>
-    <button class="btn btn-primary" onclick="requestAiAnalysis('grupo', {{ group.id }})">
+    <button class="btn btn-primary" onclick="requestAiAnalysis('grupo', {{ group.id }})"
+            data-bs-toggle="popover" data-bs-title="Análisis IA del grupo"
+            data-bs-content="<p>Genera recomendaciones sobre carga, avance y riesgos operativos del equipo seleccionado.</p><p><strong>Úsalo para:</strong> preparar seguimiento semanal, justificar reasignaciones o mostrar valor del servicio por área.</p>">
         <i class="bi bi-robot me-1"></i> Análisis IA
     </button>
 </div>
@@ -29,7 +36,12 @@
     <div class="col-md-4">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-transparent border-0">
-                <h6 class="mb-0 fw-semibold">Distribución por Estado</h6>
+                <h6 class="mb-0 fw-semibold">Distribución por Estado
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Estados del grupo"
+                            data-bs-content="<p>Resume dónde está parado el trabajo del equipo: pendiente, en progreso, pausado, terminado o cancelado.</p><p><strong>Señal útil:</strong> si suben pendientes y pausadas, el problema suele ser capacidad, prioridades confusas o falta de información.</p>"
+                            aria-label="Ayuda de estados del grupo"><i class="bi bi-question-lg"></i></button>
+                </h6>
             </div>
             <div class="card-body d-flex align-items-center justify-content-center">
                 <canvas id="chartEstados" style="max-height: 220px;"></canvas>
@@ -39,7 +51,12 @@
     <div class="col-md-8">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-transparent border-0">
-                <h6 class="mb-0 fw-semibold">Avance por Miembro</h6>
+                <h6 class="mb-0 fw-semibold">Avance por Miembro
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Avance por miembro"
+                            data-bs-content="<p>Compara avance y carga entre integrantes del grupo para detectar desequilibrios operativos.</p><p><strong>Acción:</strong> abre el usuario con baja ejecución y muchas tareas antes de reasignar trabajo.</p>"
+                            aria-label="Ayuda de avance por miembro"><i class="bi bi-question-lg"></i></button>
+                </h6>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -48,7 +65,10 @@
                         <tbody>
                             {% for m in stats.get('miembros_detalle', []) %}
                             <tr>
-                                <td class="ps-4"><a href="{{ url_for('analytics.user_detail', user_id=m.id) }}"><i class="bi bi-person-circle me-1"></i>{{ m.nombre }}</a></td>
+                                <td class="ps-4"><a href="{{ url_for('analytics.user_detail', user_id=m.id) }}"
+                                                             data-bs-toggle="popover" data-bs-title="Ver analítica individual"
+                                                             data-bs-content="<p>Abre el diagnóstico del usuario para revisar estados, avance y recomendaciones IA con contexto individual.</p>">
+                                    <i class="bi bi-person-circle me-1"></i>{{ m.nombre }}</a></td>
                                 <td>{{ m.total_tareas }}</td>
                                 <td><div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:6px;width:100px"><div class="progress-bar bg-accent" style="width:{{ m.avance_promedio }}%"></div></div><small>{{ m.avance_promedio }}%</small></div></td>
                             </tr>
@@ -64,7 +84,10 @@
 <div class="card border-0 shadow-sm mb-4" id="aiPanel" style="display:none">
     <div class="card-header bg-transparent border-0 d-flex align-items-center justify-content-between">
         <h5 class="mb-0 fw-semibold"><i class="bi bi-robot me-2 text-accent"></i>Análisis IA <span class="badge bg-accent-subtle text-accent ms-2" id="aiProviderBadge"></span></h5>
-        <button class="btn btn-sm btn-outline-secondary" onclick="this.closest('.card').style.display='none'"><i class="bi bi-x-lg"></i></button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="this.closest('.card').style.display='none'"
+                data-bs-toggle="tooltip" title="Cerrar el panel de análisis IA.">
+            <i class="bi bi-x-lg"></i>
+        </button>
     </div>
     <div class="card-body" id="aiContent"></div>
 </div>

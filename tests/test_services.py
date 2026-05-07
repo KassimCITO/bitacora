@@ -7,6 +7,8 @@ Ejecutar con: python -m pytest tests/ -v --cov=app
 import pytest
 import sys
 import os
+import re
+from io import BytesIO
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -149,6 +151,71 @@ class TestPDFService:
                                         company_name='Test Corp')
             assert isinstance(pdf, bytes)
             assert pdf[:5] == b'%PDF-'
+
+
+class TestFiscalPDFService:
+    def test_extract_constancia_data_from_metadata_text(self, tmp_path):
+        from app.services.fiscal_pdf_service import extract_constancia_fiscal_data
+
+        constancia = tmp_path / 'constancia.pdf'
+        constancia.write_text(
+            """
+            Constancia de Situación Fiscal
+            RFC: ABC010203AB1
+            Denominación/Razón Social: SERVICIOS INDUSTRIALES DEL CENTRO SA DE CV
+            Régimen Fiscal: Régimen General de Ley Personas Morales
+            Domicilio Fiscal: AV REFORMA 123, CENTRO, CUAUHTEMOC, CIUDAD DE MEXICO, 06000
+            """,
+            encoding='utf-8',
+        )
+
+        data = extract_constancia_fiscal_data(str(constancia))
+
+        assert data['rfc'] == 'ABC010203AB1'
+        assert data['razon_social'] == 'SERVICIOS INDUSTRIALES DEL CENTRO SA DE CV'
+        assert 'REFORMA 123' in data['direccion']
+        assert data['regimen_fiscal'] == 'Régimen General de Ley Personas Morales'
+
+    def test_extract_persona_fisica_constancia_data(self, tmp_path):
+        from app.services.fiscal_pdf_service import extract_constancia_fiscal_data
+
+        constancia = tmp_path / 'persona_fisica.pdf'
+        constancia.write_text(
+            """
+            CONSTANCIA DE SITUACIÓN FISCAL
+            MORK680308PZ7
+            Registro Federal de Contribuyentes
+            KASSIM ASSAD MOSRI
+            RODRIGUEZ
+            Nombre, denominación o razón
+            social
+            Datos de Identificación del Contribuyente:
+            RFC: MORK680308PZ7
+            CURP: MORK680308HMNSDS06
+            Nombre (s): KASSIM ASSAD
+            Primer Apellido: MOSRI
+            Segundo Apellido: RODRIGUEZ
+            Datos del domicilio registrado
+            Código Postal:60600 Tipo de Vialidad: CALLE
+            Nombre de Vialidad: HERIBERTO JARA OTE Número Exterior: 121
+            Número Interior: Nombre de la Colonia: APATZINGAN DE LA CONSTITUCION CENTRO
+            Nombre de la Localidad: APATZINGAN DE LA CONSTITUCION Nombre del Municipio o Demarcación Territorial: APATZINGAN
+            Nombre de la Entidad Federativa: MICHOACAN DE OCAMPO Entre Calle: LIC MANUEL DE ALDERETE Y SORIA
+            Regímenes:
+            Régimen Fecha Inicio Fecha Fin
+            Régimen de las Personas Físicas con Actividades Empresariales y Profesionales 01/01/2014
+            Obligaciones:
+            """,
+            encoding='utf-8',
+        )
+
+        data = extract_constancia_fiscal_data(str(constancia))
+
+        assert data['rfc'] == 'MORK680308PZ7'
+        assert data['razon_social'] == 'KASSIM ASSAD MOSRI RODRIGUEZ'
+        assert '60600' in data['direccion']
+        assert 'HERIBERTO JARA OTE' in data['direccion']
+        assert data['regimen_fiscal'] == 'Régimen de las Personas Físicas con Actividades Empresariales y Profesionales'
 
 
 class TestExportService:
@@ -317,6 +384,61 @@ class TestCompanyCRUD:
             }, follow_redirects=True)
             assert response.status_code == 200
 
+    def test_superuser_create_company_with_csf_generates_app_key(self, client, init_db, app):
+        with app.app_context():
+            from app.services.app_key_service import generate_app_key
+
+            client.get('/logout')
+            client.post('/login', data={'username': 'su2', 'password': 'test123'})
+            fake_pdf = BytesIO(
+                b"""
+                Constancia de Situacion Fiscal
+                RFC: NEW010203AB7
+                Denominacion/Razon Social: NUEVA FISCAL SA DE CV
+                Regimen Fiscal: Regimen General de Ley Personas Morales
+                Domicilio Fiscal: AV NUEVA 10, CENTRO, CDMX, 06000
+                """
+            )
+
+            response = client.post(
+                '/companies/create',
+                data={
+                    'nombre': 'Nueva con CSF',
+                    'mail_port': '587',
+                    'constancia_fiscal': (fake_pdf, 'constancia.pdf'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=False,
+            )
+
+            assert response.status_code == 302
+            c = Company.query.filter_by(nombre='Nueva con CSF').first()
+            assert c is not None
+            assert c.rfc == 'NEW010203AB7'
+            assert c.razon_social == 'NUEVA FISCAL SA DE CV'
+            assert c.app_key == generate_app_key(c.razon_social, app.config['SECRET_KEY'])
+            assert f'/companies/{c.id}/edit' in response.headers['Location']
+
+    def test_superuser_create_rejects_non_pdf_csf(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'su2', 'password': 'test123'})
+
+            response = client.post(
+                '/companies/create',
+                data={
+                    'nombre': 'No Debe Crear',
+                    'mail_port': '587',
+                    'constancia_fiscal': (BytesIO(b'RFC: BAD010203AB1'), 'constancia.txt'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=True,
+            )
+
+            assert response.status_code == 400
+            assert 'La CSF debe ser un archivo PDF válido' in response.data.decode('utf-8')
+            assert Company.query.filter_by(nombre='No Debe Crear').first() is None
+
     def test_switch_company(self, client, init_db, app):
         with app.app_context():
             client.get('/logout')
@@ -324,6 +446,241 @@ class TestCompanyCRUD:
             c = Company.query.filter_by(nombre='Empresa A').first()
             response = client.post(f'/companies/{c.id}/switch', follow_redirects=True)
             assert response.status_code == 200
+
+    def test_edit_company_uses_constancia_fiscal_data(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            c = Company.query.filter_by(nombre='Empresa A').first()
+            fake_pdf = BytesIO(
+                b"""
+                Constancia de Situacion Fiscal
+                RFC: FIS010203AB9
+                Denominacion/Razon Social: FISCAL REAL SA DE CV
+                Regimen Fiscal: Regimen General de Ley Personas Morales
+                Domicilio Fiscal: CALLE SAT 45, CENTRO, MONTERREY, NUEVO LEON, 64000
+                """
+            )
+
+            response = client.post(
+                f'/companies/{c.id}/edit',
+                data={
+                    'nombre': c.nombre,
+                    'mail_port': '587',
+                    'constancia_fiscal': (fake_pdf, 'constancia.pdf'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=True,
+            )
+
+            assert response.status_code == 200
+            assert c.rfc == 'FIS010203AB9'
+            assert c.razon_social == 'FISCAL REAL SA DE CV'
+            assert 'CALLE SAT 45' in c.direccion
+            assert c.regimen_fiscal == 'Regimen General de Ley Personas Morales'
+            assert c.app_key is None
+            c.rfc = 'EMPA010101AAA'
+            c.razon_social = None
+            c.direccion = None
+            c.regimen_fiscal = None
+            c.constancia_fiscal_path = None
+            _db.session.commit()
+
+    def test_invalid_csf_pdf_shows_error(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'su2', 'password': 'test123'})
+            c = Company.query.filter_by(nombre='Empresa A').first()
+            bad_pdf = BytesIO(b'')
+
+            response = client.post(
+                f'/companies/{c.id}/edit',
+                data={
+                    'nombre': c.nombre,
+                    'mail_port': '587',
+                    'constancia_fiscal': (bad_pdf, 'constancia.pdf'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=True,
+            )
+
+            assert response.status_code == 400
+            assert 'No se pudo procesar la CSF' in response.data.decode('utf-8')
+            _db.session.refresh(c)
+            assert c.constancia_fiscal_path is None
+
+    def test_unreadable_csf_does_not_reuse_existing_fiscal_data(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'su2', 'password': 'test123'})
+            c = Company.query.filter_by(nombre='Empresa B').first()
+            c.rfc = 'OLD010203AB1'
+            c.razon_social = 'DATOS VIEJOS SA DE CV'
+            c.constancia_fiscal_path = None
+            _db.session.commit()
+
+            response = client.post(
+                f'/companies/{c.id}/edit',
+                data={
+                    'nombre': c.nombre,
+                    'mail_port': '587',
+                    'constancia_fiscal': (BytesIO(b'PDF sin datos SAT'), 'constancia.pdf'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=True,
+            )
+
+            assert response.status_code == 400
+            assert 'No se detectó RFC ni razón social fiscal' in response.data.decode('utf-8')
+            _db.session.refresh(c)
+            assert c.rfc == 'OLD010203AB1'
+            assert c.razon_social == 'DATOS VIEJOS SA DE CV'
+            assert c.constancia_fiscal_path is None
+
+    def test_csf_without_fiscal_identity_is_rejected_and_preserves_data(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'su2', 'password': 'test123'})
+            c = Company.query.filter_by(nombre='Empresa A').first()
+            c.rfc = 'KEEP010203AB1'
+            c.razon_social = 'DATOS ORIGINALES SA DE CV'
+            _db.session.commit()
+
+            response = client.post(
+                f'/companies/{c.id}/edit',
+                data={
+                    'nombre': c.nombre,
+                    'mail_port': '587',
+                    'constancia_fiscal': (BytesIO(b'PDF sin datos fiscales suficientes'), 'constancia.pdf'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=True,
+            )
+
+            assert response.status_code == 400
+            assert 'No se detectó RFC ni razón social fiscal' in response.data.decode('utf-8')
+            _db.session.refresh(c)
+            assert c.rfc == 'KEEP010203AB1'
+            assert c.razon_social == 'DATOS ORIGINALES SA DE CV'
+
+    def test_superuser_csf_upload_redirects_back_to_edit(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'su2', 'password': 'test123'})
+            c = Company.query.filter_by(nombre='Empresa A').first()
+            fake_pdf = BytesIO(
+                b"""
+                Constancia de Situacion Fiscal
+                RFC: REDIRECT010203ABA
+                Denominacion/Razon Social: REDIRECT PRUEBA SA DE CV
+                Regimen Fiscal: Regimen General de Ley Personas Morales
+                Domicilio Fiscal: CALLE REDIRECT 123, CENTRO, CIUDAD, 00000
+                """
+            )
+
+            response = client.post(
+                f'/companies/{c.id}/edit',
+                data={
+                    'nombre': c.nombre,
+                    'mail_port': '587',
+                    'constancia_fiscal': (fake_pdf, 'constancia.pdf'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=False,
+            )
+
+            assert response.status_code == 302
+            assert f'/companies/{c.id}/edit' in response.headers['Location']
+
+    def test_superuser_csf_upload_generates_app_key(self, client, init_db, app):
+        with app.app_context():
+            from app.services.app_key_service import generate_app_key
+
+            client.get('/logout')
+            client.post('/login', data={'username': 'su2', 'password': 'test123'})
+            c = Company.query.filter_by(nombre='Empresa B').first()
+            fake_pdf = BytesIO(
+                b"""
+                Constancia de Situacion Fiscal
+                RFC: KEY010203AB8
+                Denominacion/Razon Social: CLIENTE CON LICENCIA SA DE CV
+                Regimen Fiscal: Regimen General de Ley Personas Morales
+                Domicilio Fiscal: AV LICENCIA 100, GUADALAJARA, JALISCO, 44100
+                """
+            )
+
+            response = client.post(
+                f'/companies/{c.id}/edit',
+                data={
+                    'nombre': c.nombre,
+                    'mail_port': '587',
+                    'constancia_fiscal': (fake_pdf, 'constancia.pdf'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=True,
+            )
+
+            assert response.status_code == 200
+            assert c.app_key is not None
+            assert re.fullmatch(r'KMR-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}', c.app_key)
+            assert c.app_key == generate_app_key(c.razon_social, app.config['SECRET_KEY'])
+
+    def test_invalid_app_key_blocks_app_until_correct_key(self, client, init_db, app):
+        with app.app_context():
+            from app.services.app_key_service import generate_app_key
+
+            c = Company.query.filter_by(nombre='Empresa A').first()
+            c.razon_social = 'EMPRESA A FISCAL SA DE CV'
+            c.app_key = 'KMR-XXXXX-XXXXX-XXXXX-XXXXX'
+            _db.session.commit()
+
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            blocked = client.get('/tasks/')
+            assert blocked.status_code == 302
+            assert f'/companies/{c.id}/edit' in blocked.headers['Location']
+
+            valid_key = generate_app_key(c.razon_social, app.config['SECRET_KEY'])
+            response = client.post(f'/companies/{c.id}/edit', data={
+                'nombre': c.nombre,
+                'representante_legal': '',
+                'telefono': '',
+                'email_contacto': '',
+                'sitio_web': '',
+                'mail_port': '587',
+                'app_key': valid_key.lower(),
+            }, follow_redirects=True)
+            assert response.status_code == 200
+            assert c.app_key == valid_key
+
+            allowed = client.get('/tasks/')
+            assert allowed.status_code == 200
+
+    def test_invalid_submitted_app_key_does_not_save_changes(self, client, init_db, app):
+        with app.app_context():
+            c = Company.query.filter_by(nombre='Empresa A').first()
+            c.razon_social = 'EMPRESA A FISCAL SA DE CV'
+            c.app_key = None
+            c.telefono = '111'
+            _db.session.commit()
+
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            response = client.post(f'/companies/{c.id}/edit', data={
+                'nombre': c.nombre,
+                'representante_legal': '',
+                'telefono': '999',
+                'email_contacto': '',
+                'sitio_web': '',
+                'mail_port': '587',
+                'app_key': 'KMR-XXXXX-XXXXX-XXXXX-XXXXX',
+            }, follow_redirects=True)
+
+            assert response.status_code == 400
+            assert 'APP-Key incorrecta' in response.data.decode('utf-8')
+            _db.session.refresh(c)
+            assert c.app_key is None
+            assert c.telefono == '111'
 
 
 # ===== Tests de Seguridad =====

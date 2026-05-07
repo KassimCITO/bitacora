@@ -27,6 +27,9 @@ def export_csv():
     empresa_id = _get_empresa_id()
     estado = request.args.get('estado', '')
     prioridad = request.args.get('prioridad', '')
+    usuario_id = request.args.get('usuario', '', type=str)
+    grupo_id = request.args.get('grupo', '', type=str)
+    search = request.args.get('search', '').strip()
 
     query = Task.query.filter_by(empresa_id=empresa_id)
 
@@ -34,6 +37,12 @@ def export_csv():
         query = query.filter_by(estado=estado)
     if prioridad:
         query = query.filter_by(prioridad=prioridad)
+    if usuario_id:
+        query = query.filter_by(usuario_asignado_id=int(usuario_id))
+    if grupo_id:
+        query = query.filter_by(grupo_id=int(grupo_id))
+    if search:
+        query = query.filter(Task.nombre.ilike(f'%{search}%'))
 
     tasks = query.order_by(Task.fecha_creacion.desc()).all()
     csv_data = export_tasks_csv(tasks)

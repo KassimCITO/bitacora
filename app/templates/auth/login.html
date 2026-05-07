@@ -7,13 +7,25 @@
         <div class="login-card">
             <!-- Logo y título -->
             <div class="text-center mb-4">
-                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Bitácora" height="64" class="mb-3 login-logo">
-                <h1 class="h4 fw-bold mb-1">Bitácora</h1>
+                <img src="{{ empresa_logo_url or url_for('static', filename='img/logo.png') }}" alt="Bitácora" height="64" class="mb-3 login-logo">
+                <h1 class="h4 fw-bold mb-1">{{ app_name }}</h1>
                 <p class="text-muted small">Sistema de Gestión Operativa</p>
             </div>
 
+            <div class="login-security-panel mb-4">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-shield-lock-fill text-accent mt-1"></i>
+                    <div>
+                        <div class="fw-semibold small">Acceso empresarial protegido</div>
+                        <div class="text-muted" style="font-size: 0.76rem;">
+                            Sesión con CSRF, cookies seguras, bloqueo por intentos fallidos y validación de redirecciones.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Formulario -->
-            <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+            <form method="POST" action="{{ url_for('auth.login', next=request.args.get('next')) }}" id="loginForm" novalidate>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="mb-3">
@@ -21,7 +33,9 @@
                         <i class="bi bi-person me-1"></i> Usuario
                     </label>
                     <input type="text" class="form-control form-control-lg" id="username" name="username"
-                           placeholder="Tu nombre de usuario" required autofocus autocomplete="username">
+                           placeholder="Tu nombre de usuario" required autofocus autocomplete="username"
+                           autocapitalize="none" spellcheck="false" inputmode="text" minlength="3" maxlength="80"
+                           data-bs-toggle="tooltip" title="Ingresa tu nombre de usuario para acceder al sistema.">
                 </div>
 
                 <div class="mb-3">
@@ -30,19 +44,29 @@
                     </label>
                     <div class="input-group">
                         <input type="password" class="form-control form-control-lg" id="password" name="password"
-                               placeholder="Tu contraseña" required autocomplete="current-password">
+                               placeholder="Tu contraseña" required autocomplete="current-password" minlength="6" maxlength="128"
+                               data-bs-toggle="tooltip" title="Ingresa tu contraseña. Asegúrate de que sea segura y única.">
                         <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1">
                             <i class="bi bi-eye"></i>
                         </button>
                     </div>
+                    <div class="form-text d-none" id="capsLockHint">
+                        <i class="bi bi-exclamation-triangle me-1"></i> Bloq Mayús está activado.
+                    </div>
                 </div>
 
-                <div class="mb-4 form-check">
-                    <input type="checkbox" class="form-check-input" id="remember" name="remember" value="1">
-                    <label class="form-check-label small" for="remember">Recordarme</label>
+                <div class="mb-4 d-flex align-items-start justify-content-between gap-3">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="remember" name="remember" value="1">
+                        <label class="form-check-label small" for="remember">Mantener sesión</label>
+                    </div>
+                    <span class="badge bg-accent-subtle text-accent">
+                        <i class="bi bi-lock"></i> TLS ready
+                    </span>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-lg w-100 fw-medium" id="loginBtn">
+                <button type="submit" class="btn btn-primary btn-lg w-100 fw-medium" id="loginBtn"
+                        data-bs-toggle="tooltip" title="Haz clic para iniciar sesión en el sistema Bitácora.">
                     <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
                 </button>
             </form>
@@ -54,17 +78,37 @@
 
 {% block extra_js %}
 <script>
+    const loginForm = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+    const passwordInput = document.getElementById('password');
+    const capsLockHint = document.getElementById('capsLockHint');
+
     // Toggle de visibilidad de contraseña
     document.getElementById('togglePassword').addEventListener('click', function() {
-        const pwd = document.getElementById('password');
         const icon = this.querySelector('i');
-        if (pwd.type === 'password') {
-            pwd.type = 'text';
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
             icon.className = 'bi bi-eye-slash';
         } else {
-            pwd.type = 'password';
+            passwordInput.type = 'password';
             icon.className = 'bi bi-eye';
         }
+    });
+
+    passwordInput.addEventListener('keyup', function(event) {
+        if (!capsLockHint) { return; }
+        capsLockHint.classList.toggle('d-none', !event.getModifierState('CapsLock'));
+    });
+
+    loginForm.addEventListener('submit', function(event) {
+        if (!loginForm.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+            loginForm.classList.add('was-validated');
+            return;
+        }
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Verificando...';
     });
 </script>
 {% endblock %}

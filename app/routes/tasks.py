@@ -4,7 +4,7 @@ Rutas de gestión de tareas: CRUD, avances, adjuntos.
 Filtrado multi-tenant por empresa_id.
 """
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from flask import (
     Blueprint, render_template, redirect, url_for, flash,
     request, current_app, send_file, abort, session
@@ -16,6 +16,7 @@ from ..models.task_log import TaskLog
 from ..models.attachment import Attachment
 from ..models.user import User
 from ..models.group import Group
+from ..services.image_service import image_url, optimize_image_upload
 from ..utils.decorators import role_required
 from ..utils.helpers import allowed_file, save_upload
 from ..utils.sanitizer import sanitize_html
@@ -28,6 +29,57 @@ def _get_empresa_id():
     if current_user.is_superuser:
         return session.get('empresa_id')
     return current_user.empresa_id
+
+
+def _task_time(task):
+    """Fecha operativa para ordenar/separar tareas en la vista."""
+    return task.ultima_actualizacion or task.fecha_creacion or task.fecha_hora_inicio
+
+
+def _format_elapsed(delta):
+    """Convierte un timedelta en texto breve para separadores de tareas."""
+    total_seconds = int(abs(delta.total_seconds()))
+    if total_seconds < 60:
+        return 'menos de 1 min'
+
+    minutes = total_seconds // 60
+    days, minutes = divmod(minutes, 1440)
+    hours, minutes = divmod(minutes, 60)
+
+    parts = []
+    if days:
+        parts.append(f"{days} dia{'s' if days != 1 else ''}")
+    if hours and len(parts) < 2:
+        parts.append(f"{hours} h")
+    if minutes and len(parts) < 2:
+        parts.append(f"{minutes} min")
+    return ' '.join(parts)
+
+
+def _build_task_timeline(tasks):
+    """Prepara tareas con separadores de tiempo entre una y otra."""
+    rows = []
+    previous_task = None
+    previous_time = None
+
+    for task in tasks:
+        current_time = _task_time(task)
+        separator = None
+
+        if previous_task and previous_time and current_time:
+            separator = {
+                'label': _format_elapsed(previous_time - current_time),
+                'detail': f"Entre #{previous_task.id} y #{task.id}",
+            }
+
+        rows.append({
+            'task': task,
+            'separator': separator,
+        })
+        previous_task = task
+        previous_time = current_time
+
+    return rows
 
 
 @tasks_bp.route('/')
@@ -64,6 +116,27 @@ def list_tasks():
     if search:
         query = query.filter(Task.nombre.ilike(f'%{search}%'))
 
+    now = datetime.now()
+    due_soon_limit = now + timedelta(hours=48)
+    open_states = ('pendiente', 'en_progreso', 'pausada')
+    pulse = {
+        'overdue': query.filter(
+            Task.estado.in_(open_states),
+            Task.fecha_hora_fin_estimada.isnot(None),
+            Task.fecha_hora_fin_estimada < now,
+        ).count(),
+        'due_soon': query.filter(
+            Task.estado.in_(open_states),
+            Task.fecha_hora_fin_estimada.isnot(None),
+            Task.fecha_hora_fin_estimada >= now,
+            Task.fecha_hora_fin_estimada <= due_soon_limit,
+        ).count(),
+        'high_priority': query.filter(
+            Task.estado.in_(open_states),
+            Task.prioridad == 'alta',
+        ).count(),
+    }
+
     # Ordenar y paginar
     query = query.order_by(Task.ultima_actualizacion.desc())
     pagination = query.paginate(
@@ -71,6 +144,8 @@ def list_tasks():
         per_page=current_app.config.get('TASKS_PER_PAGE', 15),
         error_out=False,
     )
+    task_rows = _build_task_timeline(pagination.items)
+    pulse['without_progress'] = sum(1 for task in pagination.items if task.ultimo_avance == 0)
 
     # Usuarios y grupos para filtro
     users = User.query.filter_by(empresa_id=empresa_id, activo=True).order_by(User.nombre_completo).all()
@@ -79,6 +154,8 @@ def list_tasks():
     return render_template(
         'tasks/list.html',
         tasks=pagination.items,
+        task_rows=task_rows,
+        pulse=pulse,
         pagination=pagination,
         users=users,
         groups=groups,
@@ -147,6 +224,26 @@ def create():
         estados=Task.ESTADOS,
         prioridades=Task.PRIORIDADES,
     )
+
+
+@tasks_bp.route('/editor-image', methods=['POST'])
+@login_required
+@role_required('administrador', 'manager')
+def editor_image_upload():
+    """Sube una imagen para incrustarla en el editor de tareas."""
+    file = request.files.get('image')
+    try:
+        _, ruta, _, _ = optimize_image_upload(
+            file,
+            current_app.config['UPLOAD_FOLDER'],
+            prefix='task-editor',
+            max_size=(1800, 1800),
+            quality=84,
+        )
+    except Exception as exc:
+        return {'error': str(exc)}, 400
+
+    return {'url': image_url(ruta)}
 
 
 @tasks_bp.route('/<int:task_id>')

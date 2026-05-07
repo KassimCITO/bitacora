@@ -3,7 +3,12 @@
 
 {% block content %}
 <div class="mb-4">
-    <h1 class="h3 fw-bold mb-1"><i class="bi bi-file-earmark-pdf me-2 text-accent"></i>Reportes</h1>
+    <h1 class="h3 fw-bold mb-1"><i class="bi bi-file-earmark-pdf me-2 text-accent"></i>Reportes
+        <button type="button" class="help-popover ms-2"
+                data-bs-toggle="popover" data-bs-title="Centro de reportes"
+                data-bs-content="<p>Convierte la operación registrada en documentos para clientes, auditoría interna o seguimiento directivo.</p><p><strong>Regla comercial:</strong> usa PDF para evidencia formal y CSV para análisis masivo, conciliación o integración con otras herramientas.</p>"
+                aria-label="Ayuda de reportes"><i class="bi bi-question-lg"></i></button>
+    </h1>
     <p class="text-muted mb-0">Genera reportes en PDF por tarea o rango de fechas</p>
 </div>
 
@@ -12,21 +17,35 @@
     <div class="col-md-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-transparent border-0">
-                <h5 class="mb-0 fw-semibold"><i class="bi bi-file-text me-2 text-accent"></i>Reporte por Tarea</h5>
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-file-text me-2 text-accent"></i>Reporte por Tarea
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Reporte por tarea"
+                            data-bs-content="<p>Genera un PDF individual con datos de la tarea, estado, prioridad, asignación e historial de avances.</p><p><strong>Úsalo cuando:</strong> necesitas evidencia puntual para cliente, cierre de trabajo, soporte técnico o cobranza.</p>"
+                            aria-label="Ayuda de reporte por tarea"><i class="bi bi-question-lg"></i></button>
+                </h5>
             </div>
             <div class="card-body">
                 <p class="text-muted small">Selecciona una tarea para generar su reporte completo con historial de avances.</p>
                 <form method="GET" id="taskReportForm">
                     <div class="mb-3">
-                        <label for="taskSelect" class="form-label fw-medium">Tarea</label>
-                        <select class="form-select" id="taskSelect" required>
+                        <label for="taskSelect" class="form-label fw-medium">Tarea
+                            <button type="button" class="help-popover ms-1"
+                                    data-bs-toggle="popover" data-bs-title="Seleccionar tarea"
+                                    data-bs-content="<p>Elige la tarea exacta que quieres documentar. El PDF toma la información actual, por lo que conviene revisar avances y adjuntos antes de generarlo.</p><p><strong>Tip:</strong> para entregables al cliente, usa nombres de tarea claros y específicos.</p>"
+                                    aria-label="Ayuda para seleccionar tarea"><i class="bi bi-question-lg"></i></button>
+                        </label>
+                        <select class="form-select" id="taskSelect" required
+                                data-bs-toggle="popover" data-bs-title="Tarea a reportar"
+                                data-bs-content="<p>Busca por folio o nombre. Si la tarea no aparece, confirma que pertenece a la empresa activa y que tienes permisos de reporte.</p>">
                             <option value="">Seleccionar tarea...</option>
                             {% for task in tasks %}
                             <option value="{{ task.id }}">#{{ task.id }} — {{ task.nombre | truncate(50) }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="button" class="btn btn-primary w-100" onclick="generateTaskReport()">
+                    <button type="button" class="btn btn-primary w-100" onclick="generateTaskReport()"
+                            data-bs-toggle="popover" data-bs-title="Generar PDF individual"
+                            data-bs-content="<p>Abre el PDF en una nueva pestaña para revisión o descarga.</p><p><strong>Antes de enviar:</strong> valida estado, avance y responsable. Un reporte limpio vende profesionalismo.</p>">
                         <i class="bi bi-file-pdf me-1"></i> Generar PDF
                     </button>
                 </form>
@@ -38,7 +57,12 @@
     <div class="col-md-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-transparent border-0">
-                <h5 class="mb-0 fw-semibold"><i class="bi bi-calendar-range me-2 text-accent"></i>Reporte por Fechas</h5>
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-calendar-range me-2 text-accent"></i>Reporte por Fechas
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Reporte por fechas"
+                            data-bs-content="<p>Consolida todas las tareas creadas dentro del rango seleccionado.</p><p><strong>Úsalo para:</strong> cortes semanales, reportes mensuales, auditorías internas y reuniones de avance por cliente o área.</p>"
+                            aria-label="Ayuda de reporte por fechas"><i class="bi bi-question-lg"></i></button>
+                </h5>
             </div>
             <div class="card-body">
                 <p class="text-muted small">Genera un reporte consolidado de todas las tareas creadas en un rango de fechas.</p>
@@ -46,15 +70,31 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="row g-2 mb-3">
                         <div class="col-6">
-                            <label for="fecha_inicio" class="form-label fw-medium">Desde</label>
-                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required>
+                            <label for="fecha_inicio" class="form-label fw-medium">Desde
+                                <button type="button" class="help-popover ms-1"
+                                        data-bs-toggle="popover" data-bs-title="Fecha inicial"
+                                        data-bs-content="<p>Define el inicio del corte. Se incluyen tareas creadas desde esta fecha.</p><p><strong>Recomendación:</strong> usa rangos cerrados y consistentes para comparar semanas o meses sin sesgo.</p>"
+                                        aria-label="Ayuda de fecha inicial"><i class="bi bi-question-lg"></i></button>
+                            </label>
+                            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" required
+                                   data-bs-toggle="popover" data-bs-title="Desde"
+                                   data-bs-content="<p>Selecciona la primera fecha del periodo que quieres documentar.</p>">
                         </div>
                         <div class="col-6">
-                            <label for="fecha_fin" class="form-label fw-medium">Hasta</label>
-                            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" required>
+                            <label for="fecha_fin" class="form-label fw-medium">Hasta
+                                <button type="button" class="help-popover ms-1"
+                                        data-bs-toggle="popover" data-bs-title="Fecha final"
+                                        data-bs-content="<p>Define el cierre del corte. El reporte se genera con las tareas encontradas dentro del rango.</p><p><strong>Tip:</strong> para reportes de dirección, evita rangos demasiado largos si buscas decisiones rápidas.</p>"
+                                        aria-label="Ayuda de fecha final"><i class="bi bi-question-lg"></i></button>
+                            </label>
+                            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" required
+                                   data-bs-toggle="popover" data-bs-title="Hasta"
+                                   data-bs-content="<p>Selecciona la última fecha del periodo que quieres documentar.</p>">
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">
+                    <button type="submit" class="btn btn-primary w-100"
+                            data-bs-toggle="popover" data-bs-title="Generar PDF consolidado"
+                            data-bs-content="<p>Crea un PDF con todas las tareas del periodo. Si no hay tareas, el sistema mostrará una alerta.</p><p><strong>Uso ideal:</strong> evidenciar productividad y entregables por periodo ante clientes o dirección.</p>">
                         <i class="bi bi-file-pdf me-1"></i> Generar PDF
                     </button>
                 </form>
@@ -66,11 +106,18 @@
     <div class="col-md-6">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-transparent border-0">
-                <h5 class="mb-0 fw-semibold"><i class="bi bi-filetype-csv me-2 text-accent"></i>Exportar CSV</h5>
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-filetype-csv me-2 text-accent"></i>Exportar CSV
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Exportar CSV"
+                            data-bs-content="<p>Descarga las tareas en formato tabular para Excel, Power BI, conciliaciones o respaldos.</p><p><strong>Valor SaaS:</strong> exportar datos reduce fricción de adopción porque el cliente no se siente encerrado en la plataforma.</p>"
+                            aria-label="Ayuda de exportar CSV"><i class="bi bi-question-lg"></i></button>
+                </h5>
             </div>
             <div class="card-body">
                 <p class="text-muted small">Descarga todas las tareas en formato CSV.</p>
-                <a href="{{ url_for('api.export_csv') }}" class="btn btn-outline-primary w-100">
+                <a href="{{ url_for('api.export_csv') }}" class="btn btn-outline-primary w-100"
+                   data-bs-toggle="popover" data-bs-title="Descargar CSV"
+                   data-bs-content="<p>Genera un archivo con la información disponible de las tareas para análisis externo.</p><p><strong>Antes de compartir:</strong> verifica permisos y datos sensibles si el archivo saldrá de la empresa.</p>">
                     <i class="bi bi-download me-1"></i> Descargar CSV
                 </a>
             </div>

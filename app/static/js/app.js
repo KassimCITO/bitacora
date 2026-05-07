@@ -55,9 +55,9 @@
     // ========================================
     // Tooltip initialization
     // ========================================
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.forEach(function (el) {
-        new bootstrap.Tooltip(el, { trigger: 'hover' });
+        bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'hover focus', container: 'body' });
     });
 
 })();

@@ -27,17 +27,20 @@
                             <label for="nombre" class="form-label">Nombre del Grupo <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="nombre" name="nombre" required
                                    value="{{ group.nombre if group else '' }}"
-                                   placeholder="Ej: Gerencia, Programación, Administración...">
+                                   placeholder="Ej: Gerencia, Programación, Administración..."
+                                   data-bs-toggle="tooltip" title="Ingresa un nombre único para el grupo.">
                         </div>
                         <div class="col-md-4">
                             <label for="color" class="form-label">Color</label>
                             <input type="color" class="form-control form-control-color w-100" id="color" name="color"
-                                   value="{{ group.color if group else '#00d4aa' }}">
+                                   value="{{ group.color if group else '#00d4aa' }}"
+                                   data-bs-toggle="tooltip" title="Selecciona un color distintivo para identificar el grupo.">
                         </div>
                         <div class="col-12">
                             <label for="descripcion" class="form-label">Descripción</label>
                             <textarea class="form-control" id="descripcion" name="descripcion" rows="2"
-                                      placeholder="Descripción breve del grupo...">{{ group.descripcion if group else '' }}</textarea>
+                                      placeholder="Descripción breve del grupo..."
+                                      data-bs-toggle="tooltip" title="Describe la función o propósito del grupo.">{{ group.descripcion if group else '' }}</textarea>
                         </div>
                     </div>
 
@@ -51,7 +54,8 @@
                                 <input class="form-check-input" type="checkbox" id="member_{{ user.id }}"
                                        name="members" value="{{ user.id }}"
                                        {{ 'checked' if group and user.id in current_member_ids|default([]) }}>
-                                <label class="form-check-label d-flex align-items-center gap-2" for="member_{{ user.id }}">
+                                <label class="form-check-label d-flex align-items-center gap-2" for="member_{{ user.id }}"
+                                       data-bs-toggle="tooltip" title="Incluye o excluye a {{ user.nombre_completo }} del grupo.">
                                     <i class="bi bi-person-circle text-muted"></i>
                                     <span>{{ user.nombre_completo }}</span>
                                     <span class="badge bg-secondary bg-opacity-25 text-body small">{{ user.role.name }}</span>
@@ -65,10 +69,14 @@
                     </div>
 
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary"
+                                data-bs-toggle="tooltip" title="{{ 'Guardar los cambios en el grupo.' if group else 'Crear el nuevo grupo en el sistema.' }}">
                             <i class="bi bi-check-lg me-1"></i> {{ 'Guardar Cambios' if group else 'Crear Grupo' }}
                         </button>
-                        <a href="{{ url_for('groups.list_groups') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        <a href="{{ url_for('groups.list_groups') }}" class="btn btn-outline-secondary"
+                           data-bs-toggle="tooltip" title="Cancelar y volver a la lista de grupos.">
+                            Cancelar
+                        </a>
                     </div>
                 </form>
             </div>

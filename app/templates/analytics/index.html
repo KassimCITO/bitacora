@@ -6,10 +6,18 @@
     <div>
         <h1 class="h3 fw-bold mb-1">
             <i class="bi bi-bar-chart-line me-2 text-accent"></i>Analítica
+            <button type="button" class="help-popover ms-2"
+                    data-bs-toggle="popover" data-bs-title="Cómo leer esta pantalla"
+                    data-bs-content="<p>Usa esta vista para detectar cuellos de botella antes de que se conviertan en retrasos visibles para el cliente.</p><p><strong>Decisión rápida:</strong> revisa estados, avance por grupo y usuarios con mayor o menor ejecución. Después abre el detalle o pide análisis IA para convertir datos en acciones.</p>"
+                    aria-label="Ayuda de analítica">
+                <i class="bi bi-question-lg"></i>
+            </button>
         </h1>
         <p class="text-muted mb-0">Análisis de productividad — {{ company.nombre }}</p>
     </div>
-    <button class="btn btn-primary" id="btnAiAnalyze" onclick="requestAiAnalysis('empresa')">
+    <button class="btn btn-primary" id="btnAiAnalyze" onclick="requestAiAnalysis('empresa')"
+            data-bs-toggle="popover" data-bs-title="Análisis IA empresarial"
+            data-bs-content="<p>Genera un resumen ejecutivo con fortalezas, riesgos y recomendaciones accionables con los datos actuales de la empresa.</p><p><strong>Úsalo antes de una junta:</strong> te ayuda a priorizar equipos, tareas atrasadas y siguientes pasos sin revisar tabla por tabla.</p>">
         <i class="bi bi-robot me-1"></i> Análisis IA
     </button>
 </div>
@@ -17,28 +25,36 @@
 <!-- Overview Cards -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-total">
+        <div class="stat-card stat-card-total"
+             data-bs-toggle="popover" data-bs-title="Total de tareas"
+             data-bs-content="<p>Volumen completo de trabajo registrado para la empresa activa.</p><p><strong>Señal comercial:</strong> si el total crece sin avance proporcional, necesitas reasignación, limpieza de pendientes o automatización.</p>">
             <div class="stat-icon"><i class="bi bi-clipboard2-data"></i></div>
             <div class="stat-value">{{ stats.total }}</div>
             <div class="stat-label">Total Tareas</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-en_progreso">
+        <div class="stat-card stat-card-en_progreso"
+             data-bs-toggle="popover" data-bs-title="Avance promedio"
+             data-bs-content="<p>Promedio de progreso de las tareas de la empresa. Es el indicador más rápido para saber si la operación se mueve.</p><p><strong>Acción:</strong> compara este dato con grupos y usuarios para encontrar dónde se gana o pierde velocidad.</p>">
             <div class="stat-icon"><i class="bi bi-graph-up"></i></div>
             <div class="stat-value">{{ stats.avance_promedio }}%</div>
             <div class="stat-label">Avance Promedio</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-terminada">
+        <div class="stat-card stat-card-terminada"
+             data-bs-toggle="popover" data-bs-title="Usuarios activos"
+             data-bs-content="<p>Personas habilitadas que pueden ejecutar o dar seguimiento al trabajo.</p><p><strong>Acción:</strong> si hay muchos usuarios activos con baja carga, revisa asignaciones; si hay pocos, considera crear roles por área.</p>">
             <div class="stat-icon"><i class="bi bi-people"></i></div>
             <div class="stat-value">{{ stats.usuarios_activos }}</div>
             <div class="stat-label">Usuarios Activos</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="stat-card stat-card-pendiente">
+        <div class="stat-card stat-card-pendiente"
+             data-bs-toggle="popover" data-bs-title="Grupos activos"
+             data-bs-content="<p>Equipos operativos disponibles para segmentar responsabilidades.</p><p><strong>Buenas prácticas SaaS:</strong> vender la app por equipos funciona mejor cuando cada grupo tiene métricas claras y reportes propios.</p>">
             <div class="stat-icon"><i class="bi bi-collection"></i></div>
             <div class="stat-value">{{ stats.grupos_activos }}</div>
             <div class="stat-label">Grupos Activos</div>
@@ -52,7 +68,12 @@
     <div class="col-lg-4">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-transparent border-0">
-                <h6 class="mb-0 fw-semibold"><i class="bi bi-pie-chart me-2 text-accent"></i>Distribución por Estado</h6>
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-pie-chart me-2 text-accent"></i>Distribución por Estado
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Distribución por estado"
+                            data-bs-content="<p>Muestra cuántas tareas están pendientes, en progreso, pausadas, terminadas o canceladas.</p><p><strong>Lectura ejecutiva:</strong> muchas pausadas o pendientes indican fricción; muchas terminadas con bajo avance en grupos puede indicar captura tardía.</p>"
+                            aria-label="Ayuda de distribución por estado"><i class="bi bi-question-lg"></i></button>
+                </h6>
             </div>
             <div class="card-body d-flex align-items-center justify-content-center">
                 <canvas id="chartEstados" style="max-height: 250px;"></canvas>
@@ -64,7 +85,12 @@
     <div class="col-lg-4">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-transparent border-0">
-                <h6 class="mb-0 fw-semibold"><i class="bi bi-pie-chart me-2 text-accent"></i>Avance por Grupo</h6>
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-pie-chart me-2 text-accent"></i>Avance por Grupo
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Avance por grupo"
+                            data-bs-content="<p>Compara el progreso promedio de cada equipo. No mide solo cantidad; mide velocidad relativa de cierre.</p><p><strong>Acción:</strong> abre el detalle del grupo con menor avance para revisar miembros y carga operativa.</p>"
+                            aria-label="Ayuda de avance por grupo"><i class="bi bi-question-lg"></i></button>
+                </h6>
             </div>
             <div class="card-body d-flex align-items-center justify-content-center">
                 {% if group_stats %}
@@ -80,7 +106,12 @@
     <div class="col-lg-4">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-header bg-transparent border-0">
-                <h6 class="mb-0 fw-semibold"><i class="bi bi-pie-chart me-2 text-accent"></i>Avance por Usuario</h6>
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-pie-chart me-2 text-accent"></i>Avance por Usuario
+                    <button type="button" class="help-popover ms-1"
+                            data-bs-toggle="popover" data-bs-title="Avance por usuario"
+                            data-bs-content="<p>Compara el avance promedio individual para detectar usuarios con sobrecarga, falta de seguimiento o buen desempeño replicable.</p><p><strong>No lo uses aislado:</strong> combina avance, número de tareas y prioridad antes de evaluar rendimiento.</p>"
+                            aria-label="Ayuda de avance por usuario"><i class="bi bi-question-lg"></i></button>
+                </h6>
             </div>
             <div class="card-body d-flex align-items-center justify-content-center">
                 {% if user_stats %}
@@ -115,7 +146,12 @@
 
 <!-- Group Details -->
 {% if group_stats %}
-<h5 class="fw-bold mb-3"><i class="bi bi-collection me-2 text-accent"></i>Detalle por Grupo</h5>
+<h5 class="fw-bold mb-3"><i class="bi bi-collection me-2 text-accent"></i>Detalle por Grupo
+    <button type="button" class="help-popover ms-1"
+            data-bs-toggle="popover" data-bs-title="Detalle por grupo"
+            data-bs-content="<p>Convierte la analítica general en acciones por equipo: revisar carga, reasignar tareas o preparar reportes por área.</p><p><strong>Para vender el SaaS:</strong> esta vista ayuda a demostrar control operativo por departamentos.</p>"
+            aria-label="Ayuda de detalle por grupo"><i class="bi bi-question-lg"></i></button>
+</h5>
 <div class="row g-3 mb-4">
     {% for gs in group_stats %}
     <div class="col-md-6 col-xl-4">
@@ -132,7 +168,9 @@
                     </div>
                     <small class="fw-semibold">{{ gs.stats.avance_promedio }}%</small>
                 </div>
-                <a href="{{ url_for('analytics.group_detail', group_id=gs.id) }}" class="btn btn-sm btn-outline-primary w-100 mt-2">
+                <a href="{{ url_for('analytics.group_detail', group_id=gs.id) }}" class="btn btn-sm btn-outline-primary w-100 mt-2"
+                   data-bs-toggle="popover" data-bs-title="Abrir diagnóstico del grupo"
+                   data-bs-content="<p>Entra al detalle para ver distribución por estado, avance por miembro y generar análisis IA del equipo.</p><p><strong>Siguiente paso:</strong> úsalo para dirigir juntas cortas de operación.</p>">
                     Ver detalle <i class="bi bi-arrow-right ms-1"></i>
                 </a>
             </div>
@@ -144,7 +182,12 @@
 
 <!-- User Rankings -->
 {% if user_stats %}
-<h5 class="fw-bold mb-3"><i class="bi bi-trophy me-2 text-accent"></i>Ranking de Usuarios</h5>
+<h5 class="fw-bold mb-3"><i class="bi bi-trophy me-2 text-accent"></i>Ranking de Usuarios
+    <button type="button" class="help-popover ms-1"
+            data-bs-toggle="popover" data-bs-title="Ranking de usuarios"
+            data-bs-content="<p>Ordena usuarios por avance promedio para encontrar líderes operativos y usuarios que requieren apoyo.</p><p><strong>Criterio sano:</strong> valida cantidad y dificultad de tareas antes de tomar decisiones de desempeño.</p>"
+            aria-label="Ayuda de ranking de usuarios"><i class="bi bi-question-lg"></i></button>
+</h5>
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -176,7 +219,9 @@
                             </div>
                         </td>
                         <td class="text-end pe-4">
-                            <a href="{{ url_for('analytics.user_detail', user_id=us.id) }}" class="btn btn-sm btn-outline-primary">
+                            <a href="{{ url_for('analytics.user_detail', user_id=us.id) }}" class="btn btn-sm btn-outline-primary"
+                               data-bs-toggle="popover" data-bs-title="Abrir detalle del usuario"
+                               data-bs-content="<p>Revisa el desglose individual por estado y genera análisis IA para identificar carga, bloqueos y recomendaciones puntuales.</p>">
                                 <i class="bi bi-arrow-right"></i>
                             </a>
                         </td>

@@ -117,8 +117,9 @@ def ai_analyze():
     if not empresa_id:
         return jsonify({'error': 'No hay empresa seleccionada'}), 400
 
-    context_type = request.json.get('context_type', 'empresa')
-    context_id = request.json.get('context_id')
+    payload = request.get_json(silent=True) or {}
+    context_type = payload.get('context_type', 'empresa')
+    context_id = payload.get('context_id')
 
     result = generate_ai_analysis(empresa_id, context_type, context_id)
 

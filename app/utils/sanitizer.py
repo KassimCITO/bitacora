@@ -12,11 +12,12 @@ ALLOWED_TAGS = [
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'ol', 'ul', 'li',
     'a', 'blockquote', 'pre', 'code',
-    'span', 'sub', 'sup',
+    'span', 'sub', 'sup', 'img',
 ]
 
 ALLOWED_ATTRIBUTES = {
     'a': ['href', 'target', 'rel'],
+    'img': ['src', 'alt', 'class', 'loading'],
     'span': ['class'],
     '*': ['class'],
 }

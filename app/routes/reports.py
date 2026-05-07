@@ -33,7 +33,7 @@ def _get_company():
     """Obtiene la empresa activa."""
     empresa_id = _get_empresa_id()
     if empresa_id:
-        return Company.query.get(empresa_id)
+        return db.session.get(Company, empresa_id)
     return None
 
 

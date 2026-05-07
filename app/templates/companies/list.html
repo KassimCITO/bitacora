@@ -9,7 +9,8 @@
         </h1>
         <p class="text-muted mb-0">Gestión de empresas del sistema SaaS</p>
     </div>
-    <a href="{{ url_for('companies.create') }}" class="btn btn-primary">
+    <a href="{{ url_for('companies.create') }}" class="btn btn-primary"
+       data-bs-toggle="tooltip" title="Crear una nueva empresa en el sistema SaaS.">
         <i class="bi bi-plus-lg me-1"></i> Nueva Empresa
     </a>
 </div>
@@ -65,16 +66,19 @@
                 <div class="d-flex gap-2">
                     <form method="POST" action="{{ url_for('companies.switch_company', company_id=company.id) }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button class="btn btn-sm btn-primary" {{ 'disabled' if not company.activa }}>
+                        <button class="btn btn-sm btn-primary" {{ 'disabled' if not company.activa }}
+                                data-bs-toggle="tooltip" title="Acceder al panel de administración de esta empresa.">
                             <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
                         </button>
                     </form>
-                    <a href="{{ url_for('companies.edit', company_id=company.id) }}" class="btn btn-sm btn-outline-secondary">
+                    <a href="{{ url_for('companies.edit', company_id=company.id) }}" class="btn btn-sm btn-outline-secondary"
+                       data-bs-toggle="tooltip" title="Editar la información de la empresa.">
                         <i class="bi bi-pencil"></i>
                     </a>
                     <form method="POST" action="{{ url_for('companies.toggle_active', company_id=company.id) }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-sm btn-outline-{{ 'danger' if company.activa else 'success' }}"
+                                data-bs-toggle="tooltip" title="{{ 'Desactivar empresa' if company.activa else 'Activar empresa' }}."
                                 data-confirm="{{ '¿Desactivar' if company.activa else '¿Activar' }} esta empresa?">
                             <i class="bi bi-{{ 'x-circle' if company.activa else 'check-circle' }}"></i>
                         </button>
@@ -89,7 +93,8 @@
 <div class="text-center py-5">
     <i class="bi bi-building display-4 text-muted"></i>
     <p class="text-muted mt-2">No hay empresas registradas.</p>
-    <a href="{{ url_for('companies.create') }}" class="btn btn-primary">
+    <a href="{{ url_for('companies.create') }}" class="btn btn-primary"
+       data-bs-toggle="tooltip" title="Crear la primera empresa en el sistema SaaS.">
         <i class="bi bi-plus-lg me-1"></i> Crear primera empresa
     </a>
 </div>

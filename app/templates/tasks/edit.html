@@ -24,31 +24,37 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label for="nombre" class="form-label fw-medium">Nombre *</label>
-                        <input type="text" class="form-control" id="nombre" name="nombre" value="{{ task.nombre }}" required maxlength="200">
+                        <input type="text" class="form-control" id="nombre" name="nombre" value="{{ task.nombre }}" required maxlength="200"
+                               data-bs-toggle="tooltip" title="Modifica el nombre descriptivo de la tarea. Máximo 200 caracteres.">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-medium">Descripción</label>
-                        <div id="quill-editor" class="quill-container">{{ task.descripcion|safe if task.descripcion else '' }}</div>
+                        <div id="quill-editor" class="quill-container"
+                             data-bs-toggle="tooltip" title="Edita la descripción detallada de la tarea. Puedes usar formato de texto enriquecido.">{{ task.descripcion|safe if task.descripcion else '' }}</div>
                         <input type="hidden" name="descripcion" id="descripcion">
                     </div>
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label for="fecha_hora_inicio" class="form-label fw-medium">Inicio *</label>
-                            <input type="datetime-local" class="form-control" id="fecha_hora_inicio" name="fecha_hora_inicio" value="{{ task.fecha_hora_inicio.strftime('%Y-%m-%dT%H:%M') if task.fecha_hora_inicio else '' }}" required>
+                            <input type="datetime-local" class="form-control" id="fecha_hora_inicio" name="fecha_hora_inicio" value="{{ task.fecha_hora_inicio.strftime('%Y-%m-%dT%H:%M') if task.fecha_hora_inicio else '' }}" required
+                                   data-bs-toggle="tooltip" title="Modifica la fecha y hora de inicio de la tarea.">
                         </div>
                         <div class="col-md-4">
                             <label for="fecha_hora_fin_estimada" class="form-label fw-medium">Fin estimado</label>
-                            <input type="datetime-local" class="form-control" id="fecha_hora_fin_estimada" name="fecha_hora_fin_estimada" value="{{ task.fecha_hora_fin_estimada.strftime('%Y-%m-%dT%H:%M') if task.fecha_hora_fin_estimada else '' }}">
+                            <input type="datetime-local" class="form-control" id="fecha_hora_fin_estimada" name="fecha_hora_fin_estimada" value="{{ task.fecha_hora_fin_estimada.strftime('%Y-%m-%dT%H:%M') if task.fecha_hora_fin_estimada else '' }}"
+                                   data-bs-toggle="tooltip" title="Modifica la fecha y hora estimada de finalización.">
                         </div>
                         <div class="col-md-4">
                             <label for="fecha_hora_fin_real" class="form-label fw-medium">Fin real</label>
-                            <input type="datetime-local" class="form-control" id="fecha_hora_fin_real" name="fecha_hora_fin_real" value="{{ task.fecha_hora_fin_real.strftime('%Y-%m-%dT%H:%M') if task.fecha_hora_fin_real else '' }}">
+                            <input type="datetime-local" class="form-control" id="fecha_hora_fin_real" name="fecha_hora_fin_real" value="{{ task.fecha_hora_fin_real.strftime('%Y-%m-%dT%H:%M') if task.fecha_hora_fin_real else '' }}"
+                                   data-bs-toggle="tooltip" title="Registra la fecha y hora real de finalización de la tarea.">
                         </div>
                     </div>
                     <div class="row g-3 mt-1">
                         <div class="col-md-4">
                             <label for="estado" class="form-label fw-medium">Estado</label>
-                            <select class="form-select" id="estado" name="estado">
+                            <select class="form-select" id="estado" name="estado"
+                                    data-bs-toggle="tooltip" title="Cambia el estado actual de la tarea.">
                                 {% for val, label in estados %}
                                 <option value="{{ val }}" {% if task.estado == val %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
@@ -56,7 +62,8 @@
                         </div>
                         <div class="col-md-4">
                             <label for="prioridad" class="form-label fw-medium">Prioridad</label>
-                            <select class="form-select" id="prioridad" name="prioridad">
+                            <select class="form-select" id="prioridad" name="prioridad"
+                                    data-bs-toggle="tooltip" title="Modifica el nivel de prioridad de la tarea.">
                                 {% for val, label in prioridades %}
                                 <option value="{{ val }}" {% if task.prioridad == val %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
@@ -64,7 +71,8 @@
                         </div>
                         <div class="col-md-4">
                             <label for="usuario_asignado_id" class="form-label fw-medium">Asignado a *</label>
-                            <select class="form-select" id="usuario_asignado_id" name="usuario_asignado_id" required>
+                            <select class="form-select" id="usuario_asignado_id" name="usuario_asignado_id" required
+                                    data-bs-toggle="tooltip" title="Reasigna la tarea a otro usuario.">
                                 {% for u in users %}
                                 <option value="{{ u.id }}" {% if task.usuario_asignado_id == u.id %}selected{% endif %}>{{ u.nombre_completo }}</option>
                                 {% endfor %}
@@ -72,8 +80,14 @@
                         </div>
                     </div>
                     <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Guardar</button>
-                        <a href="{{ url_for('tasks.detail', task_id=task.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary"
+                                data-bs-toggle="tooltip" title="Guardar los cambios realizados en la tarea.">
+                            <i class="bi bi-check-lg me-1"></i> Guardar
+                        </button>
+                        <a href="{{ url_for('tasks.detail', task_id=task.id) }}" class="btn btn-outline-secondary"
+                           data-bs-toggle="tooltip" title="Cancelar la edición y volver a los detalles de la tarea.">
+                            Cancelar
+                        </a>
                     </div>
                 </form>
             </div>
@@ -88,20 +102,65 @@
 
 {% block extra_js %}
 <script>
+const taskEditorImageUploadUrl = '{{ url_for("tasks.editor_image_upload") }}';
+const csrfToken = '{{ csrf_token() }}';
+
 const quill = new Quill('#quill-editor', {
     theme: 'snow',
     placeholder: 'Detalles de la tarea...',
     modules: {
-        toolbar: [
-            [{ 'header': [1, 2, 3, false] }],
-            ['bold', 'italic', 'underline', 'strike'],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            ['blockquote', 'code-block'],
-            ['link'],
-            ['clean']
-        ]
+        toolbar: {
+            container: [
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['blockquote', 'code-block'],
+                ['link', 'image'],
+                ['clean']
+            ],
+            handlers: {
+                image: imageHandler
+            }
+        }
     }
 });
+
+function imageHandler() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/webp,image/gif,image/avif';
+    input.click();
+
+    input.addEventListener('change', async () => {
+        const file = input.files && input.files[0];
+        if (!file) { return; }
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const range = quill.getSelection(true);
+        quill.insertText(range.index, 'Subiendo imagen...', 'user');
+
+        try {
+            const response = await fetch(taskEditorImageUploadUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+            const data = await response.json();
+            quill.deleteText(range.index, 'Subiendo imagen...'.length);
+            if (!response.ok || !data.url) {
+                throw new Error(data.error || 'No se pudo subir la imagen.');
+            }
+            quill.insertEmbed(range.index, 'image', data.url, 'user');
+            quill.setSelection(range.index + 1, 0);
+        } catch (error) {
+            quill.deleteText(range.index, 'Subiendo imagen...'.length);
+            alert(error.message || 'No se pudo subir la imagen.');
+        }
+    });
+}
+
 document.getElementById('taskForm').addEventListener('submit', function() {
     const html = quill.root.innerHTML;
     document.getElementById('descripcion').value = (html === '<p><br></p>') ? '' : html;

@@ -195,6 +195,22 @@ class TestAuth:
         html = response.data.decode('utf-8')
         assert 'incorrectos' in html or 'danger' in html
 
+    def test_login_rejects_external_next(self, client, init_db):
+        response = client.post(
+            '/login?next=https://evil.example/phish',
+            data={'username': 'admin_test', 'password': 'test123'},
+            follow_redirects=False,
+        )
+        assert response.status_code == 302
+        assert response.headers['Location'].endswith('/')
+
+    def test_login_rate_limit_after_failed_attempts(self, client, init_db):
+        for _ in range(5):
+            response = client.post('/login', data={'username': 'locked_test', 'password': 'wrong'})
+            assert response.status_code == 200
+        response = client.post('/login', data={'username': 'locked_test', 'password': 'wrong'})
+        assert response.status_code == 429
+
     def test_logout(self, client, init_db):
         client.post('/login', data={'username': 'admin_test', 'password': 'test123'})
         response = client.get('/logout', follow_redirects=True)
@@ -283,6 +299,14 @@ class TestRoutes:
         client.post('/login', data={'username': 'admin_test', 'password': 'test123'})
         response = client.get('/analytics/')
         assert response.status_code == 200
+
+    def test_ai_analyze_accepts_empty_json_body(self, client, init_db):
+        client.post('/login', data={'username': 'admin_test', 'password': 'test123'})
+        response = client.post('/analytics/api/ai-analyze')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['context_type'] == 'empresa'
+        assert 'analysis' in data
 
     def test_csv_export(self, client, init_db):
         client.post('/login', data={'username': 'admin_test', 'password': 'test123'})
