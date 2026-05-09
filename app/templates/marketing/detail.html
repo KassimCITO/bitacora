@@ -179,7 +179,14 @@
                     <input type="file" class="form-control form-control-sm" name="csv_file" accept=".csv,text/csv" required>
                     <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-upload"></i> Importar Facebook CSV</button>
                 </form>
-                <a class="small d-inline-flex mt-2" href="{{ url_for('marketing.contacts', campaign_id=campaign.id) }}">Ver audiencia importada</a>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('marketing.contacts', campaign_id=campaign.id) }}">
+                        <i class="bi bi-pencil-square"></i> Editar BD
+                    </a>
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('marketing.contacts', campaign_id=campaign.id, print_view=1) }}">
+                        <i class="bi bi-printer"></i> Imprimir
+                    </a>
+                </div>
             </div>
         </div>
 

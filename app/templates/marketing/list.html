@@ -28,6 +28,21 @@
     <div>
         <h2 class="h5 fw-bold mb-1"><i class="bi bi-filetype-csv me-2 text-accent"></i>Importar audiencia Facebook CSV</h2>
         <p class="text-muted mb-0">Acepta columnas: User Id, User Name, Profile URL, Profile Picture, Biography, Is Verified, Friendship Status, Join Status Text, Scraped At.</p>
+        <div class="marketing-import-actions mt-3">
+            <a href="{{ url_for('marketing.contacts') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil-square"></i> Editar BD
+            </a>
+            <a href="{{ url_for('marketing.contacts', print_view=1) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-printer"></i> Imprimir
+            </a>
+            <form method="POST" action="{{ url_for('marketing.delete_all_contacts') }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sm btn-outline-danger" type="submit"
+                        data-confirm="Esto eliminará todos los contactos importados de la empresa. ¿Continuar?">
+                    <i class="bi bi-trash3"></i> Borrar BD
+                </button>
+            </form>
+        </div>
     </div>
     <form method="POST" action="{{ url_for('marketing.import_contacts') }}" enctype="multipart/form-data" class="marketing-import-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

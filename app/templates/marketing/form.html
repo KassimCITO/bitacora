@@ -81,6 +81,7 @@
                             <label for="presupuesto" class="form-label fw-medium">Presupuesto</label>
                             <input type="number" class="form-control" id="presupuesto" name="presupuesto" min="0" step="0.01"
                                    value="{{ campaign.presupuesto if campaign and campaign.presupuesto else '' }}">
+                            <div class="form-text" id="aiBudgetHint"></div>
                         </div>
                         <div class="col-md-8">
                             <label for="url_destino" class="form-label fw-medium">URL destino / landing</label>
@@ -131,7 +132,19 @@
                         ] %}
                         <div class="col-12">
                             <div class="marketing-rich-field">
-                                <label class="form-label fw-medium">{{ label }}</label>
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                    <label class="form-label fw-medium mb-0">{{ label }}</label>
+                                    {% if field in ['objetivo', 'audiencia', 'mensaje'] %}
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-accent js-campaign-ai"
+                                            data-field="{{ field }}"
+                                            disabled
+                                            title="Generar propuesta IA"
+                                            data-bs-toggle="tooltip">
+                                        <i class="bi bi-stars"></i> IA
+                                    </button>
+                                    {% endif %}
+                                </div>
                                 <div id="{{ field }}Editor" class="quill-container js-rich-editor"
                                      data-input="{{ field }}" data-placeholder="{{ placeholder }}">{{ (campaign|attr(field))|safe if campaign else '' }}</div>
                             </div>
@@ -139,6 +152,8 @@
                         </div>
                         {% endfor %}
                     </div>
+
+                    <div class="small text-muted mt-2" id="campaignAiStatus"></div>
 
                     <div class="d-flex gap-2 mt-4">
                         <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
@@ -159,6 +174,123 @@
 <script>
 window.BITACORA_EDITOR_UPLOAD_URL = '{{ url_for("editor.upload") }}';
 window.BITACORA_CSRF_TOKEN = '{{ csrf_token() }}';
+window.BITACORA_MARKETING_AI_URL = '{{ url_for("marketing.ai_suggest") }}';
 </script>
 <script src="{{ url_for('static', filename='js/rich-editor.js') }}"></script>
+<script>
+(function () {
+    'use strict';
+
+    function editorHtml(field) {
+        const editor = window.BITACORA_RICH_EDITORS && window.BITACORA_RICH_EDITORS[field];
+        if (editor) {
+            const html = editor.root.innerHTML;
+            return html === '<p><br></p>' ? '' : html;
+        }
+        const input = document.getElementById(field);
+        return input ? input.value : '';
+    }
+
+    function setEditorHtml(field, html) {
+        const editor = window.BITACORA_RICH_EDITORS && window.BITACORA_RICH_EDITORS[field];
+        const input = document.getElementById(field);
+        if (editor) {
+            editor.deleteText(0, editor.getLength(), 'api');
+            editor.clipboard.dangerouslyPasteHTML(0, html || '', 'api');
+        }
+        if (input) {
+            input.value = html || '';
+        }
+    }
+
+    function setButtonLoading(button, loading) {
+        button.dataset.loading = loading ? '1' : '0';
+        button.innerHTML = loading
+            ? '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> IA'
+            : '<i class="bi bi-stars"></i> IA';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const nameInput = document.getElementById('nombre');
+        const channelInput = document.getElementById('canal');
+        const priorityInput = document.getElementById('prioridad');
+        const budgetInput = document.getElementById('presupuesto');
+        const budgetHint = document.getElementById('aiBudgetHint');
+        const status = document.getElementById('campaignAiStatus');
+        const buttons = Array.prototype.slice.call(document.querySelectorAll('.js-campaign-ai'));
+
+        function canSuggest() {
+            return nameInput && nameInput.value.trim().length > 5;
+        }
+
+        function updateButtons() {
+            buttons.forEach(function (button) {
+                button.disabled = !canSuggest() || button.dataset.loading === '1';
+            });
+            if (status && !canSuggest()) {
+                status.textContent = 'Los botones IA se habilitan al capturar un título de más de 5 caracteres.';
+            } else if (status && status.textContent.indexOf('título') !== -1) {
+                status.textContent = '';
+            }
+        }
+
+        if (nameInput) {
+            nameInput.addEventListener('input', updateButtons);
+        }
+        updateButtons();
+
+        buttons.forEach(function (button) {
+            button.addEventListener('click', async function () {
+                if (!canSuggest()) {
+                    updateButtons();
+                    return;
+                }
+
+                setButtonLoading(button, true);
+                updateButtons();
+                if (status) { status.textContent = 'Generando propuesta comercial...'; }
+
+                try {
+                    const response = await fetch(window.BITACORA_MARKETING_AI_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': window.BITACORA_CSRF_TOKEN
+                        },
+                        body: JSON.stringify({
+                            field: button.dataset.field,
+                            nombre: nameInput.value.trim(),
+                            canal: channelInput ? channelInput.value : 'digital',
+                            prioridad: priorityInput ? priorityInput.value : 'media',
+                            objetivo: editorHtml('objetivo'),
+                            audiencia: editorHtml('audiencia'),
+                            mensaje: editorHtml('mensaje')
+                        })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || data.error) {
+                        throw new Error(data.error || 'No se pudo generar la propuesta.');
+                    }
+
+                    setEditorHtml(data.field, data.content_html);
+                    if (budgetInput && data.suggested_budget && !budgetInput.value) {
+                        budgetInput.value = data.suggested_budget;
+                    }
+                    if (budgetHint && data.suggested_budget) {
+                        budgetHint.textContent = 'Presupuesto IA sugerido: $' + Number(data.suggested_budget).toLocaleString('es-MX') + ' MXN. ' + (data.budget_rationale || '');
+                    }
+                    if (status) {
+                        status.textContent = 'Propuesta aplicada en ' + (data.field_label || 'el campo') + ' · ' + (data.ai_provider || 'IA');
+                    }
+                } catch (error) {
+                    if (status) { status.textContent = error.message || 'No se pudo generar la propuesta.'; }
+                } finally {
+                    setButtonLoading(button, false);
+                    updateButtons();
+                }
+            });
+        });
+    });
+})();
+</script>
 {% endblock %}

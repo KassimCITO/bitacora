@@ -1019,6 +1019,46 @@ main {
     align-items: center;
 }
 
+.marketing-import-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.marketing-audience-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.marketing-contact-cell {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 0.7rem;
+    align-items: center;
+    min-width: 260px;
+}
+
+.marketing-contact-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    border: 1px solid rgba(var(--accent-rgb), 0.18);
+    background: rgba(var(--accent-rgb), 0.07);
+}
+
+.marketing-contact-avatar-empty {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+}
+
+.marketing-audience-table td {
+    vertical-align: middle;
+}
+
 .marketing-ai-item,
 .marketing-cron-item {
     min-width: 0;
@@ -1999,6 +2039,7 @@ main {
     .company-logo-uploader,
     .marketing-import-panel,
     .marketing-import-form,
+    .marketing-audience-stats,
     .support-start-panel,
     .support-chat-shell,
     .support-composer-actions {
@@ -2021,6 +2062,35 @@ main {
     .fiscal-source-icon {
         width: 46px;
         height: 46px;
+    }
+}
+
+@media print {
+    #mainNavbar,
+    .footer,
+    .marketing-print-hide,
+    .alert,
+    .breadcrumb {
+        display: none !important;
+    }
+
+    main.container-fluid {
+        padding: 0 !important;
+    }
+
+    .card {
+        border: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .table {
+        color: #111;
+        font-size: 11px;
+    }
+
+    .marketing-audience-stats {
+        grid-template-columns: repeat(4, 1fr);
+        margin-bottom: 12px;
     }
 }
 

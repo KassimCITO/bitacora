@@ -562,6 +562,84 @@ class TestMarketingCRUD:
             assert contact.user_name == 'Sandy Moreno'
             assert contact.campaign_id == campaign.id
 
+    def test_marketing_ai_suggest_returns_field_and_budget(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+
+            response = client.post('/marketing/api/ai-suggest', json={
+                'nombre': 'Lanzamiento ecommerce premium',
+                'canal': 'ads',
+                'prioridad': 'alta',
+                'field': 'objetivo',
+            })
+            data = response.get_json()
+
+            assert response.status_code == 200
+            assert data['field'] == 'objetivo'
+            assert data['suggested_budget'] == 16000
+            assert 'Objetivo comercial' in data['content_html']
+            assert data['ai_used'] is False
+
+    def test_marketing_contacts_management_view_and_edit(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            campaign = MarketingCampaign.query.filter_by(nombre='Campaña Marketplace').first()
+            creator = User.query.filter_by(username='admin_a').first()
+            if campaign is None:
+                campaign = MarketingCampaign(
+                    nombre='Campaña Marketplace',
+                    canal='marketplace',
+                    estado='planeacion',
+                    prioridad='alta',
+                    responsable_id=creator.id,
+                    creado_por_id=creator.id,
+                    empresa_id=creator.empresa_id,
+                )
+                _db.session.add(campaign)
+                _db.session.commit()
+
+            contact = MarketingAudienceContact(
+                empresa_id=creator.empresa_id,
+                campaign_id=campaign.id,
+                source='facebook_csv',
+                external_user_id='contact-edit-test',
+                user_name='Contacto Editable',
+                biography='Lead con interes comercial',
+            )
+            _db.session.add(contact)
+            _db.session.commit()
+
+            list_response = client.get('/marketing/contacts')
+            body = list_response.data.decode('utf-8')
+            assert list_response.status_code == 200
+            assert 'marketing-audience-stats' in body
+            assert 'Contacto Editable' in body
+            assert 'Consent. pendiente' in body
+
+            edit_page = client.get(f'/marketing/contacts/{contact.id}/edit')
+            assert edit_page.status_code == 200
+            assert 'Editar contacto importado' in edit_page.data.decode('utf-8')
+
+            edit_response = client.post(f'/marketing/contacts/{contact.id}/edit', data={
+                'user_name': 'Contacto Calificado',
+                'campaign_id': str(campaign.id),
+                'consent_status': 'consentido',
+                'profile_url': 'https://example.com/perfil',
+                'profile_picture': '',
+                'biography': 'Lead validado para campaña',
+                'friendship_status': 'CAN_REQUEST',
+                'join_status_text': 'Se unió recientemente',
+                'is_verified': '1',
+            }, follow_redirects=True)
+            _db.session.refresh(contact)
+
+            assert edit_response.status_code == 200
+            assert contact.user_name == 'Contacto Calificado'
+            assert contact.consent_status == 'consentido'
+            assert contact.is_verified is True
+
     def test_marketing_cron_job_runner_completes_one_time_job(self, app, init_db):
         with app.app_context():
             from datetime import datetime, timedelta

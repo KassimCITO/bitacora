@@ -2,8 +2,9 @@
 """Rutas del módulo Marketing."""
 from datetime import datetime
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
+from sqlalchemy import or_
 
 from ..extensions import db
 from ..models.company import Company
@@ -12,6 +13,7 @@ from ..models.user import User
 from ..services.marketing_service import (
     build_social_share_links,
     generate_campaign_assets,
+    generate_campaign_field_suggestion,
     import_facebook_contacts,
     run_due_marketing_jobs,
 )
@@ -42,6 +44,14 @@ def _get_campaign(campaign_id):
     if campaign.empresa_id != empresa_id:
         abort(403)
     return campaign
+
+
+def _get_contact(contact_id):
+    contact = MarketingAudienceContact.query.get_or_404(contact_id)
+    empresa_id = _get_empresa_id()
+    if contact.empresa_id != empresa_id:
+        abort(403)
+    return contact
 
 
 def _campaign_from_form(campaign=None):
@@ -77,6 +87,20 @@ def _campaign_options():
     return MarketingCampaign.query.filter_by(
         empresa_id=_get_empresa_id(),
     ).order_by(MarketingCampaign.nombre).all()
+
+
+def _contacts_stats(empresa_id):
+    base = MarketingAudienceContact.query.filter_by(empresa_id=empresa_id)
+    last_contact = base.order_by(MarketingAudienceContact.updated_at.desc()).first()
+    return {
+        'total': base.count(),
+        'verified': base.filter_by(is_verified=True).count(),
+        'linked': base.filter(MarketingAudienceContact.campaign_id.isnot(None)).count(),
+        'pending': base.filter_by(consent_status='pendiente').count(),
+        'consented': base.filter_by(consent_status='consentido').count(),
+        'discarded': base.filter_by(consent_status='descartado').count(),
+        'last_update': last_contact.updated_at if last_contact else None,
+    }
 
 
 @marketing_bp.route('/')
@@ -198,12 +222,31 @@ def contacts():
 
     page = request.args.get('page', 1, type=int)
     campaign_id = request.args.get('campaign_id', type=int)
+    search = request.args.get('search', '').strip()
+    consent = request.args.get('consent', '').strip()
+    verified = request.args.get('verified', '').strip()
     query = MarketingAudienceContact.query.filter_by(empresa_id=empresa_id)
     if campaign_id:
         query = query.filter_by(campaign_id=campaign_id)
+    if consent:
+        query = query.filter_by(consent_status=consent)
+    if verified in {'1', '0'}:
+        query = query.filter_by(is_verified=(verified == '1'))
+    if search:
+        like = f'%{search}%'
+        query = query.filter(or_(
+            MarketingAudienceContact.user_name.ilike(like),
+            MarketingAudienceContact.external_user_id.ilike(like),
+            MarketingAudienceContact.biography.ilike(like),
+        ))
+    print_mode = request.args.get('print') == '1' or request.args.get('print_view') == '1'
+    per_page = current_app.config.get('TASKS_PER_PAGE', 15)
+    if print_mode:
+        per_page = max(query.count(), 1)
+        page = 1
     pagination = query.order_by(MarketingAudienceContact.updated_at.desc()).paginate(
         page=page,
-        per_page=current_app.config.get('TASKS_PER_PAGE', 15),
+        per_page=per_page,
         error_out=False,
     )
     return render_template(
@@ -211,8 +254,80 @@ def contacts():
         contacts=pagination.items,
         pagination=pagination,
         campaign_options=_campaign_options(),
+        consent_statuses=MarketingAudienceContact.CONSENT_STATUSES,
         filter_campaign_id=campaign_id,
+        filter_search=search,
+        filter_consent=consent,
+        filter_verified=verified,
+        print_mode=print_mode,
+        stats=_contacts_stats(empresa_id),
     )
+
+
+@marketing_bp.route('/contacts/<int:contact_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required('administrador', 'manager')
+def edit_contact(contact_id):
+    contact = _get_contact(contact_id)
+    if request.method == 'POST':
+        try:
+            contact.user_name = request.form.get('user_name', '').strip()
+            contact.profile_url = request.form.get('profile_url', '').strip() or None
+            contact.profile_picture = request.form.get('profile_picture', '').strip() or None
+            contact.biography = request.form.get('biography', '').strip() or None
+            contact.friendship_status = request.form.get('friendship_status', '').strip() or None
+            contact.join_status_text = request.form.get('join_status_text', '').strip() or None
+            consent_status = request.form.get('consent_status', 'pendiente')
+            valid_consent = {value for value, _ in MarketingAudienceContact.CONSENT_STATUSES}
+            contact.consent_status = consent_status if consent_status in valid_consent else 'pendiente'
+            contact.is_verified = request.form.get('is_verified') == '1'
+            campaign_id = request.form.get('campaign_id', type=int)
+            if campaign_id:
+                _get_campaign(campaign_id)
+            contact.campaign_id = campaign_id
+            if not contact.user_name:
+                flash('El nombre del contacto es obligatorio.', 'warning')
+                return redirect(url_for('marketing.edit_contact', contact_id=contact.id))
+            db.session.commit()
+            flash('Contacto de audiencia actualizado.', 'success')
+            if contact.campaign_id:
+                return redirect(url_for('marketing.contacts', campaign_id=contact.campaign_id))
+            return redirect(url_for('marketing.contacts'))
+        except Exception as exc:
+            db.session.rollback()
+            flash(f'No se pudo actualizar el contacto: {exc}', 'danger')
+
+    return render_template(
+        'marketing/contact_form.html',
+        contact=contact,
+        campaign_options=_campaign_options(),
+        consent_statuses=MarketingAudienceContact.CONSENT_STATUSES,
+    )
+
+
+@marketing_bp.route('/contacts/<int:contact_id>/delete', methods=['POST'])
+@login_required
+@role_required('administrador', 'manager')
+def delete_contact(contact_id):
+    contact = _get_contact(contact_id)
+    db.session.delete(contact)
+    db.session.commit()
+    flash('Contacto eliminado de la audiencia.', 'success')
+    return redirect(request.referrer or url_for('marketing.contacts'))
+
+
+@marketing_bp.route('/contacts/delete-all', methods=['POST'])
+@login_required
+@role_required('administrador', 'manager')
+def delete_all_contacts():
+    empresa_id = _get_empresa_id()
+    if not empresa_id:
+        flash('Selecciona una empresa primero.', 'warning')
+        return redirect(url_for('companies.list_companies'))
+    deleted = MarketingAudienceContact.query.filter_by(empresa_id=empresa_id).delete(synchronize_session=False)
+    db.session.commit()
+    flash(f'Audiencia importada eliminada: {deleted} contacto(s).', 'success')
+    return redirect(url_for('marketing.list_campaigns'))
 
 
 @marketing_bp.route('/cronjobs/run-due', methods=['POST'])
@@ -222,6 +337,34 @@ def run_due_jobs():
     processed = run_due_marketing_jobs()
     flash(f'CronJobs procesados: {len(processed)}.', 'success')
     return redirect(request.referrer or url_for('marketing.list_campaigns'))
+
+
+@marketing_bp.route('/api/ai-suggest', methods=['POST'])
+@login_required
+@role_required('administrador', 'manager')
+def ai_suggest():
+    """Endpoint AJAX para sugerir campos de campaña con IA o fallback local."""
+    empresa_id = _get_empresa_id()
+    if not empresa_id:
+        return jsonify({'error': 'No hay empresa seleccionada.'}), 400
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        suggestion = generate_campaign_field_suggestion(
+            _get_company(),
+            title=payload.get('nombre', ''),
+            channel=payload.get('canal', 'digital'),
+            priority=payload.get('prioridad', 'media'),
+            field=payload.get('field', ''),
+            current_values={
+                'objetivo': payload.get('objetivo', ''),
+                'audiencia': payload.get('audiencia', ''),
+                'mensaje': payload.get('mensaje', ''),
+            },
+        )
+        return jsonify(suggestion)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
 
 
 @marketing_bp.route('/<int:campaign_id>')

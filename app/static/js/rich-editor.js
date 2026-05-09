@@ -123,6 +123,11 @@
             }
         }
 
+        window.BITACORA_RICH_EDITORS = window.BITACORA_RICH_EDITORS || {};
+        if (editorEl.dataset.input) {
+            window.BITACORA_RICH_EDITORS[editorEl.dataset.input] = quill;
+        }
+
         return quill;
     }
 

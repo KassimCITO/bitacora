@@ -11,7 +11,7 @@ from flask import current_app
 from ..extensions import db
 from ..models.company import Company
 from ..models.marketing import MarketingAudienceContact, MarketingCampaign, MarketingCronJob
-from ..utils.sanitizer import strip_html
+from ..utils.sanitizer import sanitize_html, strip_html
 
 
 FACEBOOK_CSV_HEADERS = [
@@ -26,6 +26,93 @@ FACEBOOK_CSV_HEADERS = [
     'Scraped At',
 ]
 
+CAMPAIGN_AI_FIELDS = {
+    'objetivo': 'Objetivo',
+    'audiencia': 'Audiencia',
+    'mensaje': 'Mensaje / Oferta',
+}
+
+CHANNEL_PLAYBOOKS = {
+    'digital': {
+        'expert': 'estrategia digital omnicanal',
+        'angle': 'landing medible, remarketing y captura de leads',
+        'docs': [
+            ('Google Analytics', 'https://support.google.com/analytics/'),
+            ('Meta Business', 'https://www.facebook.com/business/help'),
+        ],
+        'base_budget': 6000,
+    },
+    'redes': {
+        'expert': 'redes sociales y community growth',
+        'angle': 'contenido social, prueba visual y conversación directa',
+        'docs': [
+            ('Meta Business Help', 'https://www.facebook.com/business/help'),
+            ('LinkedIn Marketing', 'https://business.linkedin.com/marketing-solutions'),
+        ],
+        'base_budget': 4500,
+    },
+    'email': {
+        'expert': 'email marketing y automatizaciones',
+        'angle': 'segmentación, secuencia de correos y medición de aperturas/clics',
+        'docs': [
+            ('Mailchimp Resources', 'https://mailchimp.com/resources/'),
+            ('Google Analytics', 'https://support.google.com/analytics/'),
+        ],
+        'base_budget': 3000,
+    },
+    'marketplace': {
+        'expert': 'marketplaces, fichas de producto y conversión ecommerce',
+        'angle': 'optimización de ficha, precio/promoción, imágenes y reputación',
+        'docs': [
+            ('Amazon Seller University', 'https://sell.amazon.com/learn'),
+            ('Mercado Libre Ayuda', 'https://www.mercadolibre.com.mx/ayuda/'),
+        ],
+        'base_budget': 7000,
+    },
+    'contenido': {
+        'expert': 'marketing de contenidos y SEO',
+        'angle': 'pieza útil, distribución y captación orgánica',
+        'docs': [
+            ('Google Search Central', 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide?hl=es'),
+            ('HubSpot Resources', 'https://www.hubspot.com/resources'),
+        ],
+        'base_budget': 4000,
+    },
+    'branding': {
+        'expert': 'branding, posicionamiento y percepción de marca',
+        'angle': 'mensaje rector, consistencia visual y recordación',
+        'docs': [
+            ('Canva Learn Branding', 'https://www.canva.com/learn/brand-building/'),
+            ('LinkedIn Marketing', 'https://business.linkedin.com/marketing-solutions'),
+        ],
+        'base_budget': 9000,
+    },
+    'ads': {
+        'expert': 'performance marketing y pauta pagada',
+        'angle': 'hipótesis de conversión, pruebas A/B, CPA y ROAS',
+        'docs': [
+            ('Google Ads Help', 'https://support.google.com/google-ads/'),
+            ('Meta Business Help', 'https://www.facebook.com/business/help'),
+        ],
+        'base_budget': 10000,
+    },
+    'offline': {
+        'expert': 'activaciones offline y generación local de demanda',
+        'angle': 'punto físico, referidos, seguimiento por WhatsApp y medición manual',
+        'docs': [
+            ('Google Business Profile', 'https://support.google.com/business/'),
+            ('WhatsApp Business', 'https://www.whatsapp.com/business/'),
+        ],
+        'base_budget': 12000,
+    },
+}
+
+PRIORITY_MULTIPLIERS = {
+    'baja': 0.65,
+    'media': 1,
+    'alta': 1.6,
+}
+
 
 def _parse_bool(value):
     return str(value or '').strip().lower() in {'1', 'true', 'yes', 'si', 'sí', 'verified'}
@@ -39,6 +126,176 @@ def _parse_datetime(value):
         return datetime.fromisoformat(raw.replace('Z', '+00:00'))
     except ValueError:
         return None
+
+
+def _option_label(options, value):
+    return dict(options).get(value, value or '—')
+
+
+def _channel_playbook(channel):
+    return CHANNEL_PLAYBOOKS.get(channel) or CHANNEL_PLAYBOOKS['digital']
+
+
+def _suggested_budget(channel, priority):
+    playbook = _channel_playbook(channel)
+    multiplier = PRIORITY_MULTIPLIERS.get(priority, 1)
+    return int(round(playbook['base_budget'] * multiplier / 500) * 500)
+
+
+def _link_list(channel):
+    links = []
+    for label, url in _channel_playbook(channel)['docs']:
+        links.append(f'<a href="{url}" target="_blank" rel="noopener">{label}</a>')
+    return ' y '.join(links)
+
+
+def _fallback_campaign_field_suggestion(title, channel, priority, field):
+    channel_label = _option_label(MarketingCampaign.CANALES, channel)
+    priority_label = _option_label(MarketingCampaign.PRIORIDADES, priority)
+    playbook = _channel_playbook(channel)
+    budget = _suggested_budget(channel, priority)
+    action_links = _link_list(channel)
+
+    if field == 'objetivo':
+        content = f"""
+<p><strong>Objetivo comercial:</strong> convertir la campaña "{title}" en una iniciativa de {channel_label.lower()} con resultado medible en 30 días.</p>
+<ul>
+    <li>Definir KPI principal: leads, ventas, tráfico calificado o conversaciones iniciadas.</li>
+    <li>Crear una oferta clara y una URL destino con UTM para medir el canal.</li>
+    <li>Ejecutar una prueba inicial de 7 días, revisar CTR/CPL y duplicar la variante ganadora.</li>
+    <li>Prioridad {priority_label.lower()}: presupuesto sugerido ${budget:,.0f} MXN para validar tracción sin sobredimensionar la inversión.</li>
+</ul>
+<p><strong>Guía de ejecución:</strong> revisar {action_links} antes de activar pauta, tracking o automatizaciones.</p>
+"""
+    elif field == 'audiencia':
+        content = f"""
+<p><strong>Audiencia recomendada:</strong> personas con intención comercial cercana al tema "{title}", segmentadas por problema, urgencia y capacidad de compra.</p>
+<ul>
+    <li>Segmento primario: clientes actuales o similares que ya entienden la categoría.</li>
+    <li>Segmento de expansión: prospectos fríos con interés en {playbook['angle']}.</li>
+    <li>Excluir usuarios sin intención clara y contactos sin consentimiento para evitar fricción comercial.</li>
+    <li>Crear mensajes diferenciados para decisor, usuario final y comprador sensible a precio.</li>
+</ul>
+<p><strong>Acción concreta:</strong> preparar una lista de 3 perfiles, cargarla al canal y validar configuración con {action_links}.</p>
+"""
+    else:
+        content = f"""
+<p><strong>Mensaje / Oferta:</strong> presenta "{title}" como una solución directa, fácil de entender y con beneficio visible desde la primera línea.</p>
+<ul>
+    <li>Gancho: promesa específica ligada a ahorro, ventas, rapidez, confianza o conveniencia.</li>
+    <li>Oferta: incentivo limitado, diagnóstico, demo, cotización rápida o paquete inicial según margen disponible.</li>
+    <li>CTA: llevar a una landing, WhatsApp o formulario con una sola acción principal.</li>
+    <li>Prueba: incluir testimonio, antes/después, número verificable o garantía razonable.</li>
+</ul>
+<p><strong>Siguiente paso:</strong> crear 2 variantes de copy y una pieza visual; usar {action_links} para configurar publicación, campaña o seguimiento.</p>
+"""
+
+    return {
+        'field': field,
+        'field_label': CAMPAIGN_AI_FIELDS[field],
+        'content_html': sanitize_html(content),
+        'suggested_budget': budget,
+        'budget_rationale': (
+            f'Base para {channel_label} con prioridad {priority_label}. '
+            'Ajusta según margen, duración y tamaño de audiencia.'
+        ),
+        'actions': [
+            'Configurar URL destino con UTM antes de publicar.',
+            'Preparar al menos dos variantes creativas para prueba A/B.',
+            'Revisar métricas a las 48-72 horas y pausar lo que no convierta.',
+        ],
+        'ai_used': False,
+        'ai_provider': 'Recomendación local',
+    }
+
+
+def _build_campaign_field_prompt(title, channel, priority, field, current_values=None):
+    current_values = current_values or {}
+    channel_label = _option_label(MarketingCampaign.CANALES, channel)
+    priority_label = _option_label(MarketingCampaign.PRIORIDADES, priority)
+    playbook = _channel_playbook(channel)
+    budget = _suggested_budget(channel, priority)
+
+    return f"""
+Actúa como experto senior en marketing especializado en {playbook['expert']}.
+Evalúa una campaña en español y propone contenido accionable para el campo "{CAMPAIGN_AI_FIELDS[field]}".
+
+Contexto:
+- Título de campaña: {title}
+- Canal: {channel_label}
+- Prioridad: {priority_label}
+- Objetivo actual: {strip_html(current_values.get('objetivo', ''))}
+- Audiencia actual: {strip_html(current_values.get('audiencia', ''))}
+- Mensaje/oferta actual: {strip_html(current_values.get('mensaje', ''))}
+- Presupuesto base sugerido por heurística: {budget} MXN
+
+Incluye acciones concretas y URLs explicativas cuando ayuden a ejecutar procesos del canal.
+Usa HTML simple compatible con Quill: p, strong, ul, ol, li, a. No uses tablas.
+
+Responde solo JSON válido con:
+{{
+  "content_html": "<p>...</p>",
+  "suggested_budget": 0,
+  "budget_rationale": "explicación breve",
+  "actions": ["acción 1", "acción 2", "acción 3"]
+}}
+"""
+
+
+def _parse_json_response(raw):
+    cleaned = (raw or '').strip()
+    if cleaned.startswith('```'):
+        cleaned = cleaned.split('\n', 1)[1].rsplit('```', 1)[0]
+    return json.loads(cleaned)
+
+
+def generate_campaign_field_suggestion(company, title, channel, priority, field, current_values=None):
+    """Sugiere contenido para un campo de campaña nueva o existente."""
+    title = (title or '').strip()
+    channel = channel or 'digital'
+    priority = priority or 'media'
+    field = (field or '').strip()
+    if field not in CAMPAIGN_AI_FIELDS:
+        raise ValueError('Campo IA no soportado.')
+    if len(title) <= 5:
+        raise ValueError('El título de la campaña debe tener más de 5 caracteres.')
+
+    fallback = _fallback_campaign_field_suggestion(title, channel, priority, field)
+
+    if not company or not company.ai_provider or not company.ai_api_key:
+        return fallback
+
+    try:
+        from . import ai_service
+
+        providers = {
+            'openai': ai_service._call_openai,
+            'gemini': ai_service._call_gemini,
+            'anthropic': ai_service._call_anthropic,
+        }
+        call_fn = providers.get(company.ai_provider)
+        if not call_fn:
+            return fallback
+        raw = call_fn(
+            company.ai_api_key,
+            company.ai_model,
+            _build_campaign_field_prompt(title, channel, priority, field, current_values),
+        )
+        parsed = _parse_json_response(raw)
+        content_html = sanitize_html(parsed.get('content_html') or fallback['content_html'])
+        return {
+            'field': field,
+            'field_label': CAMPAIGN_AI_FIELDS[field],
+            'content_html': content_html,
+            'suggested_budget': parsed.get('suggested_budget') or fallback['suggested_budget'],
+            'budget_rationale': parsed.get('budget_rationale') or fallback['budget_rationale'],
+            'actions': parsed.get('actions') or fallback['actions'],
+            'ai_used': True,
+            'ai_provider': company.ai_provider_label,
+        }
+    except Exception as exc:
+        current_app.logger.warning(f'Error sugiriendo campo de campaña con IA: {exc}')
+        return fallback
 
 
 def import_facebook_contacts(file_storage, empresa_id, campaign_id=None):
@@ -183,21 +440,27 @@ def generate_campaign_assets(company, campaign):
         campaign_id=campaign.id,
     ).count()
     fallback = _fallback_campaign_assets(campaign, contacts_count)
+    playbook = _channel_playbook(campaign.canal)
 
     if not company or not company.ai_provider or not company.ai_api_key:
         return fallback
 
     prompt = f"""
+Actúa como experto senior en {playbook['expert']}.
 Genera un kit de campaña de marketing en español para:
 Nombre: {campaign.nombre}
+Canal: {campaign.canal_label}
+Prioridad: {campaign.prioridad_label}
 Objetivo: {campaign.objetivo}
 Audiencia: {campaign.audiencia}
 Oferta/Mensaje: {campaign.mensaje}
 URL destino: {campaign.url_destino}
 Hashtags: {campaign.hashtags}
 Objetivo Ads: {campaign.ad_objective_label}
+Presupuesto: {campaign.presupuesto or 'pendiente'}
 Contactos importados: {contacts_count}
 
+Incluye acciones concretas y URLs explicativas si ayudan a ejecutar procesos del canal.
 Responde solo JSON con: summary, hero_copy, social_posts, ads, viral_actions, cron_suggestions.
 """
     try:

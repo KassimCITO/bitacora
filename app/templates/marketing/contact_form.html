@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Editar contacto — Marketing{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('marketing.list_campaigns') }}">Marketing</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('marketing.contacts') }}">Audiencias</a></li>
+        <li class="breadcrumb-item active">Editar contacto</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-person-lines-fill me-2 text-accent"></i>Editar contacto importado</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('marketing.edit_contact', contact_id=contact.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="user_name" class="form-label fw-medium">Nombre *</label>
+                            <input type="text" class="form-control" id="user_name" name="user_name" maxlength="180" required value="{{ contact.user_name }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-medium">ID externo</label>
+                            <input type="text" class="form-control" value="{{ contact.external_user_id or '—' }}" readonly>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="campaign_id" class="form-label fw-medium">Campaña</label>
+                            <select class="form-select" id="campaign_id" name="campaign_id">
+                                <option value="">Sin campaña</option>
+                                {% for campaign in campaign_options %}
+                                <option value="{{ campaign.id }}" {{ 'selected' if contact.campaign_id == campaign.id }}>{{ campaign.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="consent_status" class="form-label fw-medium">Consentimiento</label>
+                            <select class="form-select" id="consent_status" name="consent_status">
+                                {% for value, label in consent_statuses %}
+                                <option value="{{ value }}" {{ 'selected' if contact.consent_status == value }}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="profile_url" class="form-label fw-medium">Perfil URL</label>
+                            <input type="url" class="form-control" id="profile_url" name="profile_url" value="{{ contact.profile_url or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="profile_picture" class="form-label fw-medium">Foto URL</label>
+                            <input type="url" class="form-control" id="profile_picture" name="profile_picture" value="{{ contact.profile_picture or '' }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="friendship_status" class="form-label fw-medium">Estado</label>
+                            <input type="text" class="form-control" id="friendship_status" name="friendship_status" maxlength="80" value="{{ contact.friendship_status or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="join_status_text" class="form-label fw-medium">Unión</label>
+                            <input type="text" class="form-control" id="join_status_text" name="join_status_text" maxlength="180" value="{{ contact.join_status_text or '' }}">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="biography" class="form-label fw-medium">Biografía</label>
+                            <textarea class="form-control" id="biography" name="biography" rows="4">{{ contact.biography or '' }}</textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-check marketing-platform-option">
+                                <input class="form-check-input" type="checkbox" name="is_verified" value="1" {{ 'checked' if contact.is_verified }}>
+                                <span class="form-check-label">Contacto verificado en el origen</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
+                        <a href="{{ url_for('marketing.contacts', campaign_id=contact.campaign_id) if contact.campaign_id else url_for('marketing.contacts') }}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
