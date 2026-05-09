@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Editar' if company else 'Nueva' }} Empresa — {{ app_name }}{% endblock %}
+{% set existing_company = company and company.id %}
+{% block title %}{{ 'Editar' if existing_company else 'Nueva' }} Empresa — {{ app_name }}{% endblock %}
 
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
@@ -7,7 +8,7 @@
         {% if current_user.is_superuser %}
         <li class="breadcrumb-item"><a href="{{ url_for('companies.list_companies') }}">Empresas</a></li>
         {% endif %}
-        <li class="breadcrumb-item active">{{ 'Editar' if company else 'Nueva' }} Empresa</li>
+        <li class="breadcrumb-item active">{{ 'Editar' if existing_company else 'Nueva' }} Empresa</li>
     </ol>
 </nav>
 
@@ -15,12 +16,12 @@
     <div class="card-header bg-transparent border-0">
         <h4 class="mb-0 fw-bold">
             <i class="bi bi-building me-2 text-accent"></i>
-            {{ 'Editar Empresa' if company else 'Nueva Empresa' }}
+            {{ 'Editar Empresa' if existing_company else 'Nueva Empresa' }}
         </h4>
     </div>
     <div class="card-body">
         <form method="POST" enctype="multipart/form-data"
-              action="{{ url_for('companies.edit', company_id=company.id) if company else url_for('companies.create') }}">
+              action="{{ url_for('companies.edit', company_id=company.id) if existing_company else url_for('companies.create') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <!-- Tabs -->
@@ -94,7 +95,8 @@
                                 Sube una CSF válida para registrar los datos fiscales oficiales.
                                 {% endif %}
                                 <br>
-                                El PDF debe permitir lectura de texto y contener RFC y razón social fiscal.
+                                Recomendado: PDF original del SAT con texto seleccionable. Si es escaneo o imagen,
+                                el sistema intentará OCR cuando el servidor lo tenga disponible.
                             </div>
                         </div>
                     </div>
@@ -128,7 +130,7 @@
                             <input type="text" class="form-control fiscal-autofill-field" id="regimen_fiscal"
                                    value="{{ company.regimen_fiscal if company and company.regimen_fiscal else '' }}" readonly>
                         </div>
-                        <div class="col-md-6">
+                        <div class="{{ 'col-md-5' if current_user.is_superuser else 'col-md-6' }}">
                             <label for="app_key" class="form-label">APP-Key</label>
                             <input type="text" class="form-control app-key-field" id="app_key"
                                    name="app_key"
@@ -141,12 +143,39 @@
                                    data-bs-toggle="tooltip" title="Clave única de la aplicación para habilitar funciones avanzadas.">
                             <small class="text-muted" id="appKeyHelp">
                                 {% if current_user.is_superuser %}
-                                Se genera automáticamente desde la razón social fiscal detectada en la CSF.
+                                Se genera desde la razón social fiscal y la vigencia configurada.
                                 {% else %}
                                 Captura la APP-Key emitida por PC y Sistemas Mosri. Sin una clave válida, el sistema bloquea las demás funciones.
+                                {% if company and company.app_key_expires_at %}
+                                Vence el {{ company.app_key_expires_at.strftime('%d/%m/%Y %H:%M') }}.
+                                {% endif %}
                                 {% endif %}
                             </small>
                         </div>
+                        {% if current_user.is_superuser %}
+                        <div class="col-md-3">
+                            <label for="app_key_valid_days" class="form-label">Vigencia APP-Key</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="app_key_valid_days" name="app_key_valid_days"
+                                       min="1" max="3650" step="1"
+                                       value="{{ company.app_key_valid_days if company and company.app_key_valid_days else 365 }}"
+                                       data-bs-toggle="tooltip" title="Cantidad de días que la APP-Key será válida.">
+                                <span class="input-group-text">días</span>
+                            </div>
+                            <small class="text-muted">Cambiar días recalcula la APP-Key.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Expiración</label>
+                            <div class="form-control app-key-expiry-display" id="appKeyExpiresAt">
+                                {% if company and company.app_key_expires_at %}
+                                {{ company.app_key_expires_at.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                —
+                                {% endif %}
+                            </div>
+                            <small class="text-muted" id="appKeyPreviewStatus">Preview server-side protegido.</small>
+                        </div>
+                        {% endif %}
                         <div class="col-12">
                             <label for="direccion" class="form-label">Domicilio Fiscal</label>
                             <textarea class="form-control fiscal-autofill-field" id="direccion" rows="2" readonly>{{ company.direccion if company and company.direccion else '' }}</textarea>
@@ -157,6 +186,16 @@
                                    value="{{ company.telefono if company and company.telefono else '' }}"
                                    data-bs-toggle="tooltip" title="Número de teléfono de contacto de la empresa.">
                         </div>
+                        {% if current_user.is_superuser %}
+                        <div class="col-md-4">
+                            <label for="support_whatsapp_phone" class="form-label">Celular soporte WhatsApp</label>
+                            <input type="tel" class="form-control" id="support_whatsapp_phone" name="support_whatsapp_phone"
+                                   value="{{ company.support_whatsapp_phone if company and company.support_whatsapp_phone else '' }}"
+                                   placeholder="5215512345678"
+                                   data-bs-toggle="tooltip" title="Celular con código de país donde se recibirán los chats de soporte por WhatsApp.">
+                            <small class="text-muted">Sólo superuser. Usa formato internacional sin espacios.</small>
+                        </div>
+                        {% endif %}
                         <div class="col-md-4">
                             <label for="email_contacto" class="form-label">Email de Contacto</label>
                             <input type="email" class="form-control" id="email_contacto" name="email_contacto"
@@ -301,7 +340,7 @@
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary"
                         data-bs-toggle="popover" title="Guardar Empresa" data-bs-content="<i class='bi bi-check-circle'></i> Al hacer clic, se guardarán todos los cambios realizados en el formulario. Si es una nueva empresa, se creará un registro en el sistema con los datos proporcionados." data-bs-html="true">
-                    <i class="bi bi-check-lg me-1"></i> {{ 'Guardar Cambios' if company else 'Crear Empresa' }}
+                    <i class="bi bi-check-lg me-1"></i> {{ 'Guardar Cambios' if existing_company else 'Crear Empresa' }}
                 </button>
                 {% if current_user.is_superuser %}
                 <a href="{{ url_for('companies.list_companies') }}" class="btn btn-outline-secondary"
@@ -342,6 +381,64 @@ if (appKeyInput && !appKeyInput.readOnly) {
         appKeyInput.value = appKeyInput.value.toUpperCase();
     });
 }
+
+{% if current_user.is_superuser %}
+const appKeyDaysInput = document.getElementById('app_key_valid_days');
+const razonSocialInput = document.getElementById('razon_social');
+const appKeyExpiresAt = document.getElementById('appKeyExpiresAt');
+const appKeyPreviewStatus = document.getElementById('appKeyPreviewStatus');
+const csrfToken = '{{ csrf_token() }}';
+let appKeyPreviewTimer = null;
+
+async function refreshAppKeyPreview() {
+    if (!appKeyInput || !appKeyDaysInput || !razonSocialInput) { return; }
+    const razonSocial = razonSocialInput.value.trim();
+    const validDays = appKeyDaysInput.value;
+    if (!razonSocial) {
+        appKeyPreviewStatus.textContent = 'Sube una CSF válida para generar la APP-Key.';
+        return;
+    }
+
+    appKeyPreviewStatus.textContent = 'Calculando APP-Key...';
+    try {
+        const response = await fetch('{{ url_for("companies.app_key_preview") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                razon_social: razonSocial,
+                app_key_valid_days: validDays
+            })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.app_key) {
+            throw new Error(data.error || 'No se pudo calcular la APP-Key.');
+        }
+        appKeyInput.value = data.app_key;
+        if (appKeyExpiresAt) {
+            appKeyExpiresAt.textContent = data.expires_label || '—';
+        }
+        appKeyPreviewStatus.textContent = `Vigencia: ${data.valid_days} días. Se guardará al enviar el formulario.`;
+    } catch (error) {
+        appKeyPreviewStatus.textContent = error.message || 'No se pudo calcular la APP-Key.';
+    }
+}
+
+function queueAppKeyPreview() {
+    window.clearTimeout(appKeyPreviewTimer);
+    appKeyPreviewTimer = window.setTimeout(refreshAppKeyPreview, 250);
+}
+
+if (appKeyDaysInput) {
+    appKeyDaysInput.addEventListener('input', queueAppKeyPreview);
+    appKeyDaysInput.addEventListener('change', refreshAppKeyPreview);
+}
+if (razonSocialInput && razonSocialInput.value.trim()) {
+    queueAppKeyPreview();
+}
+{% endif %}
 
 const logoInput = document.getElementById('logo');
 const logoPreview = document.getElementById('logoPreview');

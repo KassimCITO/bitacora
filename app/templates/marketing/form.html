@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if campaign else 'Nueva' }} campaña — Bitácora{% endblock %}
+
+{% block quill_css %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('marketing.list_campaigns') }}">Marketing</a></li>
+        {% if campaign %}
+        <li class="breadcrumb-item"><a href="{{ url_for('marketing.detail', campaign_id=campaign.id) }}">#{{ campaign.id }}</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">{{ 'Editar' if campaign else 'Nueva' }}</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-megaphone me-2 text-accent"></i>{{ 'Editar campaña' if campaign else 'Nueva campaña' }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('marketing.edit', campaign_id=campaign.id) if campaign else url_for('marketing.create') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="nombre" class="form-label fw-medium">Nombre *</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" required maxlength="200"
+                                   value="{{ campaign.nombre if campaign else '' }}" placeholder="Ej: Lanzamiento promoción mayo">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="responsable_id" class="form-label fw-medium">Responsable *</label>
+                            <select class="form-select" id="responsable_id" name="responsable_id" required>
+                                <option value="">Seleccionar...</option>
+                                {% for u in users %}
+                                <option value="{{ u.id }}" {{ 'selected' if campaign and campaign.responsable_id == u.id }}>{{ u.nombre_completo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="estado" class="form-label fw-medium">Estado</label>
+                            <select class="form-select" id="estado" name="estado">
+                                {% for val, label in estados %}
+                                <option value="{{ val }}" {{ 'selected' if campaign and campaign.estado == val }}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="canal" class="form-label fw-medium">Canal</label>
+                            <select class="form-select" id="canal" name="canal">
+                                {% for val, label in canales %}
+                                <option value="{{ val }}" {{ 'selected' if campaign and campaign.canal == val }}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="prioridad" class="form-label fw-medium">Prioridad</label>
+                            <select class="form-select" id="prioridad" name="prioridad">
+                                {% for val, label in prioridades %}
+                                <option value="{{ val }}" {{ 'selected' if (campaign and campaign.prioridad == val) or (not campaign and val == 'media') }}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="fecha_inicio" class="form-label fw-medium">Inicio</label>
+                            <input type="datetime-local" class="form-control" id="fecha_inicio" name="fecha_inicio"
+                                   value="{{ campaign.fecha_inicio.strftime('%Y-%m-%dT%H:%M') if campaign and campaign.fecha_inicio else '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="fecha_fin" class="form-label fw-medium">Fin</label>
+                            <input type="datetime-local" class="form-control" id="fecha_fin" name="fecha_fin"
+                                   value="{{ campaign.fecha_fin.strftime('%Y-%m-%dT%H:%M') if campaign and campaign.fecha_fin else '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="presupuesto" class="form-label fw-medium">Presupuesto</label>
+                            <input type="number" class="form-control" id="presupuesto" name="presupuesto" min="0" step="0.01"
+                                   value="{{ campaign.presupuesto if campaign and campaign.presupuesto else '' }}">
+                        </div>
+                        <div class="col-md-8">
+                            <label for="url_destino" class="form-label fw-medium">URL destino / landing</label>
+                            <input type="url" class="form-control" id="url_destino" name="url_destino"
+                                   value="{{ campaign.url_destino if campaign and campaign.url_destino else '' }}"
+                                   placeholder="https://mi-landing.com/oferta">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="ad_objective" class="form-label fw-medium">Objetivo Ads</label>
+                            <select class="form-select" id="ad_objective" name="ad_objective">
+                                <option value="">Seleccionar...</option>
+                                {% for val, label in ad_objectives %}
+                                <option value="{{ val }}" {{ 'selected' if campaign and campaign.ad_objective == val }}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-medium">Plataformas</label>
+                            <div class="marketing-platform-grid">
+                                {% set selected_platforms = campaign.platform_values if campaign else [] %}
+                                {% for val, label in plataformas %}
+                                <label class="form-check marketing-platform-option">
+                                    <input class="form-check-input" type="checkbox" name="plataformas" value="{{ val }}"
+                                           {{ 'checked' if val in selected_platforms }}>
+                                    <span class="form-check-label">{{ label }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <label for="copy_rrss" class="form-label fw-medium">Copy para compartir en RRSS</label>
+                            <textarea class="form-control" id="copy_rrss" name="copy_rrss" rows="3"
+                                      placeholder="Texto corto listo para Facebook, X, LinkedIn o WhatsApp...">{{ campaign.copy_rrss if campaign and campaign.copy_rrss else '' }}</textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="hashtags" class="form-label fw-medium">Hashtags</label>
+                            <textarea class="form-control" id="hashtags" name="hashtags" rows="3"
+                                      placeholder="#Marca #Oferta #Industria">{{ campaign.hashtags if campaign and campaign.hashtags else '' }}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mt-1 marketing-editor-grid">
+                        {% for field, label, placeholder in [
+                            ('objetivo', 'Objetivo', 'Define el objetivo comercial de la campaña...'),
+                            ('audiencia', 'Audiencia', 'Describe segmentos, buyer persona o criterios de targeting...'),
+                            ('mensaje', 'Mensaje / Oferta', 'Copy, propuesta, recursos creativos y promesa principal...'),
+                            ('notas', 'Notas internas', 'Checklist, enlaces, PDFs, imágenes y observaciones...')
+                        ] %}
+                        <div class="col-12">
+                            <div class="marketing-rich-field">
+                                <label class="form-label fw-medium">{{ label }}</label>
+                                <div id="{{ field }}Editor" class="quill-container js-rich-editor"
+                                     data-input="{{ field }}" data-placeholder="{{ placeholder }}">{{ (campaign|attr(field))|safe if campaign else '' }}</div>
+                            </div>
+                            <input type="hidden" name="{{ field }}" id="{{ field }}">
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
+                        <a href="{{ url_for('marketing.list_campaigns') }}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block quill_js %}
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.BITACORA_EDITOR_UPLOAD_URL = '{{ url_for("editor.upload") }}';
+window.BITACORA_CSRF_TOKEN = '{{ csrf_token() }}';
+</script>
+<script src="{{ url_for('static', filename='js/rich-editor.js') }}"></script>
+{% endblock %}

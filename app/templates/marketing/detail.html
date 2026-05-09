@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}{{ campaign.nombre }} — Marketing{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('marketing.list_campaigns') }}">Marketing</a></li>
+        <li class="breadcrumb-item active">#{{ campaign.id }}</li>
+    </ol>
+</nav>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+                    <div>
+                        <h1 class="h4 fw-bold mb-2">{{ campaign.nombre }}</h1>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-{{ campaign.estado_badge }}">{{ campaign.estado_label }}</span>
+                            <span class="badge bg-accent-subtle text-accent"><i class="bi bi-broadcast"></i>{{ campaign.canal_label }}</span>
+                            <span class="badge bg-{{ campaign.prioridad_badge }}-subtle text-{{ campaign.prioridad_badge }}">{{ campaign.prioridad_label }}</span>
+                        </div>
+                    </div>
+                    {% if current_user.has_role('administrador', 'manager') or current_user.is_superuser %}
+                    <a href="{{ url_for('marketing.edit', campaign_id=campaign.id) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-pencil"></i> Editar
+                    </a>
+                    {% endif %}
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="detail-item">
+                            <span class="detail-label"><i class="bi bi-person me-1"></i> Responsable</span>
+                            <span class="detail-value">{{ campaign.responsable.nombre_completo }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-item">
+                            <span class="detail-label"><i class="bi bi-cash-coin me-1"></i> Presupuesto</span>
+                            <span class="detail-value">{{ '$%0.2f'|format(campaign.presupuesto) if campaign.presupuesto else '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-item">
+                            <span class="detail-label"><i class="bi bi-bullseye me-1"></i> Objetivo Ads</span>
+                            <span class="detail-value">{{ campaign.ad_objective_label }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-item">
+                            <span class="detail-label"><i class="bi bi-share me-1"></i> Plataformas</span>
+                            <span class="detail-value">{{ campaign.platform_labels|join(', ') if campaign.platform_labels else '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-item">
+                            <span class="detail-label"><i class="bi bi-calendar-event me-1"></i> Inicio</span>
+                            <span class="detail-value">{{ campaign.fecha_inicio.strftime('%d/%m/%Y %H:%M') if campaign.fecha_inicio else '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-item">
+                            <span class="detail-label"><i class="bi bi-calendar-check me-1"></i> Fin</span>
+                            <span class="detail-value">{{ campaign.fecha_fin.strftime('%d/%m/%Y %H:%M') if campaign.fecha_fin else '—' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="detail-item">
+                            <span class="detail-label"><i class="bi bi-link-45deg me-1"></i> URL destino</span>
+                            <span class="detail-value">
+                                {% if campaign.url_destino %}
+                                <a href="{{ campaign.url_destino }}" target="_blank" rel="noopener">{{ campaign.url_destino }}</a>
+                                {% else %}—{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if social_links %}
+                <hr>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for key, link in social_links.items() %}
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ link }}" target="_blank" rel="noopener">
+                        <i class="bi bi-{{ 'facebook' if key == 'facebook' else 'twitter-x' if key == 'x' else 'linkedin' if key == 'linkedin' else 'whatsapp' }}"></i>
+                        {{ 'Facebook' if key == 'facebook' else 'X' if key == 'x' else 'LinkedIn' if key == 'linkedin' else 'WhatsApp' }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% for value, label, icon in [
+            (campaign.objetivo, 'Objetivo', 'bullseye'),
+            (campaign.audiencia, 'Audiencia', 'people'),
+            (campaign.mensaje, 'Mensaje / Oferta', 'chat-square-heart'),
+            (campaign.copy_rrss, 'Copy RRSS', 'share'),
+            (campaign.hashtags, 'Hashtags', 'hash'),
+            (campaign.notas, 'Notas internas', 'journal-text')
+        ] %}
+        {% if value %}
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0">
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-{{ icon }} me-2 text-accent"></i>{{ label }}</h5>
+            </div>
+            <div class="card-body pt-0">
+                <div class="ql-content">{{ value|safe }}</div>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-lightning-charge me-2 text-accent"></i>Lectura comercial</h6>
+            </div>
+            <div class="card-body pt-0">
+                <div class="d-grid gap-2">
+                    <div class="detail-item">
+                        <span class="detail-label">Señal de prioridad</span>
+                        <span class="detail-value">{{ campaign.prioridad_label }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Canal principal</span>
+                        <span class="detail-value">{{ campaign.canal_label }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Última actualización</span>
+                        <span class="detail-value">{{ campaign.ultima_actualizacion.strftime('%d/%m/%Y %H:%M') if campaign.ultima_actualizacion else '—' }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Audiencia importada</span>
+                        <span class="detail-value">{{ contacts_count }} contacto{{ 's' if contacts_count != 1 else '' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if current_user.has_role('administrador', 'manager') or current_user.is_superuser %}
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-stars me-2 text-accent"></i>Kit IA</h6>
+                <form method="POST" action="{{ url_for('marketing.generate_ai', campaign_id=campaign.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-primary" type="submit"><i class="bi bi-magic"></i> Generar</button>
+                </form>
+            </div>
+            <div class="card-body pt-0">
+                {% if campaign.ai_assets %}
+                <p class="small text-muted">{{ campaign.ai_assets.summary if campaign.ai_assets.summary else 'Kit generado.' }}</p>
+                {% if campaign.ai_assets.social_posts %}
+                <div class="d-grid gap-2">
+                    {% for post in campaign.ai_assets.social_posts[:3] %}
+                    <div class="marketing-ai-item">
+                        <strong>{{ post.platform }}</strong>
+                        <span>{{ post['copy'] }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% else %}
+                <p class="text-muted small mb-0">Genera copies, variantes para Meta/Google/LinkedIn y sugerencias de viralización.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-filetype-csv me-2 text-accent"></i>Importar audiencia CSV</h6>
+            </div>
+            <div class="card-body pt-0">
+                <form method="POST" action="{{ url_for('marketing.import_contacts') }}" enctype="multipart/form-data" class="d-grid gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="campaign_id" value="{{ campaign.id }}">
+                    <input type="file" class="form-control form-control-sm" name="csv_file" accept=".csv,text/csv" required>
+                    <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-upload"></i> Importar Facebook CSV</button>
+                </form>
+                <a class="small d-inline-flex mt-2" href="{{ url_for('marketing.contacts', campaign_id=campaign.id) }}">Ver audiencia importada</a>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-clock-history me-2 text-accent"></i>CronJobs de contenido</h6>
+            </div>
+            <div class="card-body pt-0">
+                <form method="POST" action="{{ url_for('marketing.create_cronjob', campaign_id=campaign.id) }}" class="d-grid gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" class="form-control form-control-sm" name="nombre" placeholder="Nombre del envío">
+                    <select class="form-select form-select-sm" name="plataforma">
+                        {% for value, label in plataformas %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <textarea class="form-control form-control-sm" name="contenido" rows="3" placeholder="Contenido a preparar/enviar" required>{{ campaign.copy_rrss or '' }}</textarea>
+                    <input type="url" class="form-control form-control-sm" name="url_destino" value="{{ campaign.url_destino or '' }}" placeholder="URL destino">
+                    <input type="datetime-local" class="form-control form-control-sm" name="next_run_at" required>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control" name="interval_minutes" min="0" step="1" placeholder="Repetir cada">
+                        <span class="input-group-text">min</span>
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-plus-lg"></i> Crear CronJob</button>
+                </form>
+
+                {% if cron_jobs %}
+                <hr>
+                <div class="d-grid gap-2">
+                    {% for job in cron_jobs %}
+                    <div class="marketing-cron-item">
+                        <div>
+                            <strong>{{ job.nombre }}</strong>
+                            <span>{{ job.plataforma }} · {{ job.status_label }}</span>
+                        </div>
+                        <small>{{ job.next_run_at.strftime('%d/%m/%Y %H:%M') if job.next_run_at else '—' }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

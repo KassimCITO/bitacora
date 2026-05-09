@@ -21,10 +21,14 @@ class Company(db.Model):
     representante_legal = db.Column(db.String(200), nullable=True)
     direccion = db.Column(db.Text, nullable=True)
     telefono = db.Column(db.String(50), nullable=True)
+    support_whatsapp_phone = db.Column(db.String(32), nullable=True)
     email_contacto = db.Column(db.String(150), nullable=True)
     sitio_web = db.Column(db.String(250), nullable=True)
     logo_path = db.Column(db.String(500), nullable=True)
     app_key = db.Column(db.String(27), nullable=True, unique=True, index=True)
+    app_key_valid_days = db.Column(db.Integer, nullable=False, default=365)
+    app_key_issued_at = db.Column(db.DateTime, nullable=True)
+    app_key_expires_at = db.Column(db.DateTime, nullable=True, index=True)
 
     # --- Información Fiscal ---
     rfc = db.Column(db.String(20), nullable=True)

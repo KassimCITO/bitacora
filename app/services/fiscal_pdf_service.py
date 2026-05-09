@@ -7,10 +7,18 @@ Este modulo no falla el guardado si el PDF no es legible; solo retorna los
 campos que pudo identificar con suficiente confianza.
 """
 import re
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 
 
 RFC_RE = re.compile(r'\b[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}\b', re.IGNORECASE)
 DATE_RE = re.compile(r'\s+\d{2}/\d{2}/\d{4}.*$')
+SAT_TEXT_RE = re.compile(
+    r'Constancia|Situaci[oó]n Fiscal|Registro Federal|RFC|R[ée]gimen|Domicilio Fiscal|SAT',
+    re.IGNORECASE,
+)
 
 
 def _normalize_text(value):
@@ -24,29 +32,177 @@ def _normalize_text(value):
     return value.strip()
 
 
-def _read_pdf_text(path):
+def _run_text_command(command, timeout=12):
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ''
+
+    if result.returncode != 0:
+        return ''
+    return result.stdout or ''
+
+
+def _extract_with_pypdf(path, diagnostics):
     chunks = []
 
     try:
         from pypdf import PdfReader  # type: ignore
 
         reader = PdfReader(path)
+        diagnostics['pdf_pages'] = len(reader.pages)
         if reader.metadata:
             chunks.extend(str(v) for v in reader.metadata.values() if v)
         for page in reader.pages[:3]:
             chunks.append(page.extract_text() or '')
+        diagnostics['pypdf_text_chars'] = len(''.join(chunks))
+        diagnostics['methods'].append('pypdf')
     except Exception:
-        pass
+        diagnostics['pypdf_failed'] = True
+
+    return '\n'.join(chunks)
+
+
+def _extract_with_pdftotext(path, diagnostics):
+    if not shutil.which('pdftotext'):
+        diagnostics['pdftotext_available'] = False
+        return ''
+
+    diagnostics['pdftotext_available'] = True
+    text = _run_text_command(['pdftotext', '-f', '1', '-l', '3', '-layout', path, '-'])
+    if text:
+        diagnostics['methods'].append('pdftotext')
+        diagnostics['pdftotext_text_chars'] = len(text)
+    return text
+
+
+def _extract_with_raw_bytes(path, diagnostics):
+    chunks = []
 
     try:
         with open(path, 'rb') as file:
             raw = file.read()
+        diagnostics['file_size'] = len(raw)
+        diagnostics['has_pdf_header'] = raw.startswith(b'%PDF-')
+        diagnostics['image_markers'] = (
+            raw.count(b'/Image') + raw.count(b'/XObject') + raw.count(b'/Subtype /Image')
+        )
         for encoding in ('utf-8', 'latin-1'):
-            chunks.append(raw.decode(encoding, errors='ignore'))
+            decoded = raw.decode(encoding, errors='ignore')
+            if SAT_TEXT_RE.search(decoded) or RFC_RE.search(decoded.upper()):
+                chunks.append(decoded)
     except Exception:
-        pass
+        diagnostics['raw_read_failed'] = True
 
-    return _normalize_text('\n'.join(chunks))
+    if chunks:
+        diagnostics['methods'].append('raw-bytes')
+    return '\n'.join(chunks)
+
+
+def _extract_with_ocr(path, diagnostics):
+    if not shutil.which('pdftoppm') or not shutil.which('tesseract'):
+        diagnostics['ocr_available'] = False
+        return ''
+
+    diagnostics['ocr_available'] = True
+    chunks = []
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image_prefix = str(Path(tmpdir) / 'csf-page')
+            render = subprocess.run(
+                ['pdftoppm', '-f', '1', '-l', '3', '-r', '220', '-png', path, image_prefix],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=25,
+            )
+            if render.returncode != 0:
+                diagnostics['ocr_render_failed'] = True
+                return ''
+
+            for image_path in sorted(Path(tmpdir).glob('csf-page-*.png')):
+                text = _run_text_command(
+                    ['tesseract', str(image_path), 'stdout', '-l', 'spa+eng', '--psm', '6'],
+                    timeout=25,
+                )
+                if text:
+                    chunks.append(text)
+    except (OSError, subprocess.SubprocessError):
+        diagnostics['ocr_failed'] = True
+        return ''
+
+    if chunks:
+        diagnostics['methods'].append('ocr')
+        diagnostics['ocr_text_chars'] = len('\n'.join(chunks))
+    return '\n'.join(chunks)
+
+
+def _read_pdf_text(path):
+    diagnostics = {
+        'methods': [],
+        'pdf_pages': 0,
+        'file_size': 0,
+        'has_pdf_header': False,
+        'image_markers': 0,
+        'ocr_available': None,
+        'pdftotext_available': None,
+    }
+
+    chunks = [
+        _extract_with_pypdf(path, diagnostics),
+        _extract_with_pdftotext(path, diagnostics),
+        _extract_with_raw_bytes(path, diagnostics),
+    ]
+
+    text = _normalize_text('\n'.join(chunks))
+    if not text or (len(text) < 60 and not RFC_RE.search(text.upper())):
+        ocr_text = _normalize_text(_extract_with_ocr(path, diagnostics))
+        if ocr_text:
+            text = _normalize_text('\n'.join([text, ocr_text]))
+
+    diagnostics['text_chars'] = len(text)
+    return text, diagnostics
+
+
+def _build_unreadable_error(diagnostics):
+    if diagnostics.get('file_size') == 0:
+        return (
+            'PDF vacío: el archivo no contiene datos. Descarga nuevamente la CSF desde el SAT '
+            'y vuelve a subir el PDF original.'
+        )
+
+    if diagnostics.get('has_pdf_header') is False and diagnostics.get('pypdf_failed'):
+        return (
+            'El archivo tiene extensión PDF, pero no parece ser un PDF válido. '
+            'Sube la Constancia de Situación Fiscal original descargada del SAT.'
+        )
+
+    image_like = diagnostics.get('image_markers', 0) > 0 or (
+        diagnostics.get('pdf_pages', 0) > 0 and diagnostics.get('pypdf_text_chars', 0) == 0
+    )
+    if image_like:
+        if diagnostics.get('ocr_available') is False:
+            return (
+                'La CSF parece estar escaneada o guardada como imagen y este servidor no tiene OCR disponible. '
+                'Sube el PDF original del SAT con texto seleccionable, o instala Poppler y Tesseract OCR para '
+                'habilitar lectura de PDFs escaneados.'
+            )
+        return (
+            'La CSF parece estar escaneada o guardada como imagen. Se intentó OCR, pero no se pudo reconocer '
+            'texto fiscal suficiente. Vuelve a escanear con mayor resolución/contraste o sube el PDF original '
+            'del SAT con texto seleccionable.'
+        )
+
+    return (
+        'No se pudo leer texto fiscal dentro del PDF. Verifica que sea la Constancia de Situación Fiscal '
+        'del SAT, que no esté protegido/corrupto y que el texto se pueda seleccionar.'
+    )
 
 
 def _find_labeled_value(text, labels, stop_labels=None, max_len=180):
@@ -177,17 +333,23 @@ def extract_constancia_fiscal_data(path):
     Retorna datos detectados en la constancia:
     rfc, razon_social, direccion, regimen_fiscal.
     """
-    text = _read_pdf_text(path)
+    text, diagnostics = _read_pdf_text(path)
     if not text:
         return {
-            '__error__': 'No se pudo leer el contenido del PDF. Verifica que sea un PDF válido y no esté escaneado como imagen.'
+            '__error__': _build_unreadable_error(diagnostics),
+            '__error_code__': 'unreadable_pdf',
+            '__diagnostics__': diagnostics,
         }
 
-    data = {}
+    data = {'__diagnostics__': diagnostics}
 
     rfc_match = RFC_RE.search(text.upper())
     if rfc_match:
         data['rfc'] = rfc_match.group(0).upper()
+    else:
+        labeled_rfc = re.search(r'\bRFC\s*:?\s*([A-Z&Ñ]{3,12}\d{6}[A-Z0-9]{3})\b', text.upper())
+        if labeled_rfc:
+            data['rfc'] = labeled_rfc.group(1)[:20]
 
     razon_social = _find_labeled_value(
         text,

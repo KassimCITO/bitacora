@@ -53,6 +53,35 @@
     });
 
     // ========================================
+    // PDF viewer links from rich text editors
+    // ========================================
+    const pdfViewerModalEl = document.getElementById('pdfViewerModal');
+    const pdfViewerFrame = document.getElementById('pdfViewerFrame');
+    const pdfViewerTitle = document.getElementById('pdfViewerTitle');
+    const pdfViewerDownload = document.getElementById('pdfViewerDownload');
+    const pdfViewerModal = pdfViewerModalEl ? bootstrap.Modal.getOrCreateInstance(pdfViewerModalEl) : null;
+
+    document.querySelectorAll('a.pdf-viewer-link').forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            if (!pdfViewerModal || !pdfViewerFrame) { return; }
+            event.preventDefault();
+            const pdfUrl = link.dataset.pdfUrl || link.getAttribute('href');
+            pdfViewerFrame.src = pdfUrl;
+            pdfViewerTitle.textContent = link.textContent.trim() || 'Documento PDF';
+            if (pdfViewerDownload) {
+                pdfViewerDownload.href = pdfUrl;
+            }
+            pdfViewerModal.show();
+        });
+    });
+
+    if (pdfViewerModalEl && pdfViewerFrame) {
+        pdfViewerModalEl.addEventListener('hidden.bs.modal', function () {
+            pdfViewerFrame.src = 'about:blank';
+        });
+    }
+
+    // ========================================
     // Tooltip initialization
     // ========================================
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Soporte — {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1"><i class="bi bi-headset me-2 text-accent"></i>Soporte técnico</h1>
+        <p class="text-muted mb-0">{{ pagination.total }} chat{{ 's' if pagination.total != 1 else '' }} de ayuda</p>
+    </div>
+    {% if company.support_whatsapp_phone %}
+    <span class="badge bg-success-subtle text-success">
+        <i class="bi bi-whatsapp"></i> WhatsApp {{ company.support_whatsapp_phone }}
+    </span>
+    {% elif current_user.is_superuser %}
+    <a class="btn btn-outline-warning btn-sm" href="{{ url_for('companies.edit', company_id=company.id) }}">
+        <i class="bi bi-phone"></i> Configurar celular
+    </a>
+    {% endif %}
+</div>
+
+{% if not current_user.is_superuser %}
+<div class="support-start-panel mb-4">
+    <div>
+        <h2 class="h5 fw-bold mb-1">Abrir nuevo chat</h2>
+        <p class="text-muted mb-0">Describe el problema y adjunta archivos desde el chat. El equipo técnico responderá aquí y podrás escalar a WhatsApp.</p>
+    </div>
+    <form method="POST" action="{{ url_for('support.create') }}" class="support-start-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-2">
+            <div class="col-md-6">
+                <input type="text" class="form-control" name="subject" maxlength="180" required placeholder="Asunto del problema">
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" name="priority">
+                    {% for value, label in priorities %}
+                    <option value="{{ value }}" {{ 'selected' if value == 'media' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-grid">
+                <button class="btn btn-primary" type="submit"><i class="bi bi-chat-dots"></i> Crear chat</button>
+            </div>
+            <div class="col-12">
+                <textarea class="form-control" name="body" rows="3" required placeholder="Mensaje inicial"></textarea>
+            </div>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ url_for('support.index') }}" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-medium">Estado</label>
+                <select class="form-select form-select-sm" name="status">
+                    <option value="">Todos</option>
+                    {% for value, label in statuses %}
+                    <option value="{{ value }}" {{ 'selected' if filter_status == value }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1"><i class="bi bi-funnel"></i> Filtrar</button>
+                <a href="{{ url_for('support.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {% if threads %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Chat</th>
+                        <th>Usuario</th>
+                        <th>Prioridad</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Actualizado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for thread in threads %}
+                    <tr class="task-row" onclick="window.location='{{ url_for('support.detail', thread_id=thread.id) }}'">
+                        <td class="ps-4">
+                            <div class="fw-semibold">#{{ thread.id }} {{ thread.subject }}</div>
+                            <small class="text-muted">{{ thread.messages.count() }} mensaje{{ 's' if thread.messages.count() != 1 else '' }}</small>
+                        </td>
+                        <td class="text-muted small">{{ thread.user.nombre_completo }}</td>
+                        <td class="text-muted small">{{ thread.priority_label }}</td>
+                        <td><span class="badge bg-{{ thread.status_badge }}">{{ thread.status_label }}</span></td>
+                        <td class="text-end pe-4 text-muted small">{{ thread.updated_at.strftime('%d/%m/%Y %H:%M') if thread.updated_at else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-chat-square-text display-4 text-muted"></i>
+            <p class="text-muted mt-2">No hay chats de soporte con esos filtros.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

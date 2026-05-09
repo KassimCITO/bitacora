@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Marketing — Bitácora{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1"><i class="bi bi-megaphone me-2 text-accent"></i>Marketing</h1>
+        <p class="text-muted mb-0">
+            {{ pagination.total }} campaña{{ 's' if pagination.total != 1 else '' }},
+            {{ contacts_count }} contacto{{ 's' if contacts_count != 1 else '' }},
+            {{ active_jobs }} CronJob{{ 's' if active_jobs != 1 else '' }} activo{{ 's' if active_jobs != 1 else '' }}
+        </p>
+    </div>
+    {% if current_user.has_role('administrador', 'manager') or current_user.is_superuser %}
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{{ url_for('marketing.contacts') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-people"></i> Audiencias
+        </a>
+        <a href="{{ url_for('marketing.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Nueva campaña
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{% if current_user.has_role('administrador', 'manager') or current_user.is_superuser %}
+<div class="marketing-import-panel mb-4">
+    <div>
+        <h2 class="h5 fw-bold mb-1"><i class="bi bi-filetype-csv me-2 text-accent"></i>Importar audiencia Facebook CSV</h2>
+        <p class="text-muted mb-0">Acepta columnas: User Id, User Name, Profile URL, Profile Picture, Biography, Is Verified, Friendship Status, Join Status Text, Scraped At.</p>
+    </div>
+    <form method="POST" action="{{ url_for('marketing.import_contacts') }}" enctype="multipart/form-data" class="marketing-import-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select class="form-select form-select-sm" name="campaign_id">
+            <option value="">Sin campaña específica</option>
+            {% for campaign in campaign_options %}
+            <option value="{{ campaign.id }}">{{ campaign.nombre }}</option>
+            {% endfor %}
+        </select>
+        <input type="file" class="form-control form-control-sm" name="csv_file" accept=".csv,text/csv" required>
+        <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-upload"></i> Importar</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ url_for('marketing.list_campaigns') }}" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-medium">Buscar</label>
+                <input type="text" class="form-control form-control-sm" name="search" value="{{ filter_search }}" placeholder="Nombre de campaña...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-medium">Estado</label>
+                <select class="form-select form-select-sm" name="estado">
+                    <option value="">Todos</option>
+                    {% for val, label in estados %}
+                    <option value="{{ val }}" {{ 'selected' if filter_estado == val }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-medium">Canal</label>
+                <select class="form-select form-select-sm" name="canal">
+                    <option value="">Todos</option>
+                    {% for val, label in canales %}
+                    <option value="{{ val }}" {{ 'selected' if filter_canal == val }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1"><i class="bi bi-funnel"></i> Filtrar</button>
+                <a href="{{ url_for('marketing.list_campaigns') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {% if campaigns %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Campaña</th>
+                        <th>Estado</th>
+                        <th>Canal</th>
+                        <th>Responsable</th>
+                        <th>Prioridad</th>
+                        <th class="text-end pe-4">Fin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for campaign in campaigns %}
+                    <tr class="task-row" onclick="window.location='{{ url_for('marketing.detail', campaign_id=campaign.id) }}'">
+                        <td class="ps-4">
+                            <div class="fw-medium">{{ campaign.nombre }}</div>
+                            {% if campaign.objetivo %}
+                            <small class="text-muted">{{ campaign.objetivo | plain_text | truncate(80) }}</small>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-{{ campaign.estado_badge }}">{{ campaign.estado_label }}</span></td>
+                        <td class="text-muted small">{{ campaign.canal_label }}</td>
+                        <td class="text-muted small">{{ campaign.responsable.nombre_completo }}</td>
+                        <td><span class="badge bg-{{ campaign.prioridad_badge }}-subtle text-{{ campaign.prioridad_badge }}">{{ campaign.prioridad_label }}</span></td>
+                        <td class="text-end pe-4 text-muted small">{{ campaign.fecha_fin.strftime('%d/%m/%Y') if campaign.fecha_fin else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-megaphone display-4 text-muted"></i>
+            <p class="text-muted mt-2">Aún no hay campañas de marketing.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -6,6 +6,7 @@ Diseño profesional con logo, encabezado y pie de página.
 import io
 import os
 from datetime import datetime
+from xml.sax.saxutils import escape
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -16,6 +17,7 @@ from reportlab.platypus import (
     Image, HRFlowable, PageBreak
 )
 from reportlab.platypus.flowables import Flowable
+from ..utils.sanitizer import strip_html
 
 
 # Colores corporativos
@@ -24,6 +26,10 @@ ACCENT_COLOR = colors.HexColor('#00d4aa')
 HEADER_BG = colors.HexColor('#16213e')
 ROW_ALT_BG = colors.HexColor('#f0f4f8')
 BORDER_COLOR = colors.HexColor('#dee2e6')
+
+
+def _pdf_text(value):
+    return escape(strip_html(value or ''))
 
 
 class HeaderFooter:
@@ -210,7 +216,7 @@ def generate_task_report(task, logo_path=None, company_name='Bitácora'):
             width='100%', thickness=1, color=ACCENT_COLOR,
             spaceAfter=10, spaceBefore=2
         ))
-        story.append(Paragraph(task.descripcion, styles['Normal']))
+        story.append(Paragraph(_pdf_text(task.descripcion), styles['Normal']))
 
     # --- Historial de avances ---
     from ..models.task_log import TaskLog
@@ -233,7 +239,7 @@ def generate_task_report(task, logo_path=None, company_name='Bitácora'):
                 _format_dt(log.fecha_hora),
                 log.usuario.nombre_completo if log.usuario else '—',
                 f'{log.porcentaje_avance}%',
-                Paragraph(log.comentario or '', styles['LogComment']),
+                Paragraph(_pdf_text(log.comentario), styles['LogComment']),
             ])
 
         log_table = Table(log_data, colWidths=[30, 100, 100, 50, 240])

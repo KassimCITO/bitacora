@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Planes y demo — Bitácora SaaS{% endblock %}
+
+{% block content %}
+<section class="pricing-hero">
+    <div class="pricing-hero-copy">
+        <span class="pricing-kicker">Bitácora SaaS para operaciones con evidencia</span>
+        <h1>Control operativo, reportes y seguimiento comercialmente listo.</h1>
+        <p>
+            Para equipos que hoy viven entre WhatsApp, Excel y correos. Bitácora centraliza tareas,
+            avances, grupos, analítica, IA, PDF y branding por empresa.
+        </p>
+        <div class="pricing-hero-actions">
+            <a class="btn btn-primary btn-lg" href="#planes">
+                <i class="bi bi-tags"></i> Ver planes
+            </a>
+            <a class="btn btn-outline-light btn-lg" href="#contacto">
+                <i class="bi bi-calendar2-check"></i> Pedir demo
+            </a>
+        </div>
+        <div class="pricing-proof">
+            <span><i class="bi bi-shield-check"></i> Multi-tenant</span>
+            <span><i class="bi bi-file-earmark-pdf"></i> PDF profesional</span>
+            <span><i class="bi bi-graph-up-arrow"></i> Analítica + IA</span>
+        </div>
+    </div>
+    <div class="pricing-product-visual" aria-label="Vista resumida del producto Bitacora">
+        <div class="product-window">
+            <div class="product-window-top">
+                <span></span><span></span><span></span>
+                <strong>Panel operativo</strong>
+            </div>
+            <div class="product-metrics">
+                <div><b>48</b><small>Tareas</small></div>
+                <div><b>12</b><small>Urgentes</small></div>
+                <div><b>91%</b><small>Evidencia</small></div>
+            </div>
+            <div class="product-list">
+                <span><i class="bi bi-check-circle-fill"></i> Reporte PDF enviado</span>
+                <span><i class="bi bi-clock-history"></i> 4 tareas vencen hoy</span>
+                <span><i class="bi bi-megaphone-fill"></i> Campaña con seguimiento</span>
+            </div>
+            <div class="product-chart">
+                <i style="height: 44%"></i>
+                <i style="height: 72%"></i>
+                <i style="height: 58%"></i>
+                <i style="height: 88%"></i>
+                <i style="height: 66%"></i>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="pricing-strip" aria-label="Valor del producto">
+    <div>
+        <strong>Entrega evidencia profesional en segundos.</strong>
+        <span>Reportes PDF con logo, datos fiscales y trazabilidad de avances.</span>
+    </div>
+    <div>
+        <strong>Detecta atrasos antes de que escalen.</strong>
+        <span>Dashboard, calendario, filtros por grupo y pulso operativo.</span>
+    </div>
+    <div>
+        <strong>Vende servicio multiempresa.</strong>
+        <span>Empresas aisladas, branding propio, APP-Key y roles por cliente.</span>
+    </div>
+</section>
+
+<section id="planes" class="pricing-section">
+    <div class="pricing-section-heading">
+        <span class="pricing-kicker">Planes</span>
+        <h2>Elige por complejidad operativa, no por relleno.</h2>
+    </div>
+
+    <div class="pricing-grid">
+        {% for plan in plans %}
+        <article class="pricing-card {% if plan.highlight %}pricing-card-featured{% endif %}">
+            {% if plan.highlight %}
+            <div class="pricing-badge">Recomendado</div>
+            {% endif %}
+            <div class="pricing-card-head">
+                <h3>{{ plan.name }}</h3>
+                <p>{{ plan.tagline }}</p>
+            </div>
+            <div class="pricing-price">{{ plan.price }}</div>
+            <div class="pricing-setup">{{ plan.setup }}</div>
+            <div class="pricing-fit"><i class="bi bi-people"></i> {{ plan.best_for }}</div>
+            <ul class="pricing-features">
+                {% for feature in plan.features %}
+                <li><i class="bi bi-check2"></i> {{ feature }}</li>
+                {% endfor %}
+            </ul>
+            <a class="btn {% if plan.highlight %}btn-primary{% else %}btn-outline-secondary{% endif %} w-100"
+               href="{{ url_for('public.pricing', plan=plan.key, contact='1') }}#contacto">
+                {{ plan.cta }}
+            </a>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section id="contacto" class="pricing-contact">
+    <div class="pricing-contact-copy">
+        <span class="pricing-kicker">Entrada comercial</span>
+        <h2>Activa una prueba guiada o agenda demo.</h2>
+        <p>
+            La solicitud queda registrada como lead comercial real. Si configuras
+            <code>SALES_LEADS_EMAIL</code>, tambien se envia al equipo de ventas.
+        </p>
+        <div class="contact-checks">
+            <span><i class="bi bi-check-circle"></i> Diagnostico de operacion</span>
+            <span><i class="bi bi-check-circle"></i> Plan sugerido</span>
+            <span><i class="bi bi-check-circle"></i> Siguiente paso claro</span>
+        </div>
+    </div>
+
+    <form class="pricing-form" method="POST" action="{{ url_for('public.request_demo') }}" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" class="d-none" name="website" tabindex="-1" autocomplete="off">
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label" for="leadName">Nombre</label>
+                <input class="form-control" id="leadName" name="name" required maxlength="120" autocomplete="name">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="leadCompany">Empresa</label>
+                <input class="form-control" id="leadCompany" name="company" required maxlength="160" autocomplete="organization">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="leadEmail">Email</label>
+                <input class="form-control" id="leadEmail" name="email" required type="email" maxlength="180" autocomplete="email">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="leadPhone">Telefono</label>
+                <input class="form-control" id="leadPhone" name="phone" maxlength="60" autocomplete="tel">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="leadPlan">Plan de interes</label>
+                <select class="form-select" id="leadPlan" name="plan">
+                    {% for plan in plans %}
+                    <option value="{{ plan.key }}" {% if selected_plan == plan.key %}selected{% endif %}>{{ plan.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="leadTeamSize">Usuarios estimados</label>
+                <select class="form-select" id="leadTeamSize" name="team_size">
+                    <option value="">Por definir</option>
+                    <option value="5-15">5 a 15</option>
+                    <option value="16-50">16 a 50</option>
+                    <option value="51-150">51 a 150</option>
+                    <option value="150+">150+</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label" for="leadMessage">Que operacion quieres controlar?</label>
+                <textarea class="form-control" id="leadMessage" name="message" rows="4" maxlength="900"
+                          placeholder="Ej. soporte tecnico, mantenimiento, instalaciones, seguimiento interno, clientes externos..."></textarea>
+            </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg w-100 mt-4" type="submit">
+            <i class="bi bi-send"></i> Enviar solicitud
+        </button>
+        <p class="form-note">Sin pago en esta pantalla. Primero se valida alcance, usuarios y configuracion.</p>
+    </form>
+</section>
+{% endblock %}

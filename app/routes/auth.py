@@ -60,7 +60,7 @@ def _is_safe_next(target):
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Formulario de inicio de sesión."""
-    if current_user.is_authenticated:
+    if current_user.is_authenticated and request.method == 'GET':
         return redirect(url_for('dashboard.index'))
 
     if request.method == 'POST':

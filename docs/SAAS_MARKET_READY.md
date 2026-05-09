@@ -1,4 +1,4 @@
-# Bitacora SaaS - parametros de salida al mercado
+# Bitácora SaaS by KzmCITO - Kassim Assad Mosri Rodríguez - parametros de salida al mercado
 
 ## Posicionamiento
 

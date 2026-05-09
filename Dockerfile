@@ -1,5 +1,5 @@
 # ============================================
-# Bitácora SaaS — Dockerfile
+# Bitácora SaaS by KzmCITO - Kassim Assad Mosri Rodríguez — Dockerfile
 # Multi-stage build for production
 # ============================================
 FROM python:3.12-slim AS base
@@ -23,6 +23,7 @@ RUN mkdir -p uploads instance
 
 # Environment
 ENV FLASK_CONFIG=production
+ENV FLASK_APP=run.py
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 5000

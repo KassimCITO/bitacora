@@ -16,7 +16,7 @@ ALLOWED_TAGS = [
 ]
 
 ALLOWED_ATTRIBUTES = {
-    'a': ['href', 'target', 'rel'],
+    'a': ['href', 'target', 'rel', 'class', 'data-pdf-url'],
     'img': ['src', 'alt', 'class', 'loading'],
     'span': ['class'],
     '*': ['class'],

@@ -1,4 +1,4 @@
-# 🛠️ Guía de Instalación, Puesta a Punto y Ejecución — Bitácora SaaS
+# 🛠️ Guía de Instalación, Puesta a Punto y Ejecución — Bitácora SaaS by KzmCITO - Kassim Assad Mosri Rodríguez
 
 ---
 
@@ -49,12 +49,13 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 docker-compose up -d
 ```
 
-Esto despliega 3 servicios:
+Esto despliega 4 servicios:
 
 | Servicio | Descripción | Puerto |
 |----------|-------------|--------|
 | **db** | PostgreSQL 16 Alpine | 5432 |
 | **web** | Flask + Gunicorn (4 workers) | 5000 (interno) |
+| **scheduler** | Ejecuta CronJobs de marketing con `flask marketing run-due-jobs` | interno |
 | **nginx** | Reverse proxy | **80** (público) |
 
 ### 4. Inicializar la base de datos
@@ -84,6 +85,9 @@ docker-compose down
 # Reconstruir imagen (después de cambios)
 docker-compose build --no-cache
 docker-compose up -d
+
+# Aplicar migraciones
+docker-compose exec web flask db upgrade
 
 # Ejecutar tests dentro del contenedor
 docker-compose exec web python -m pytest tests/ -v
@@ -175,6 +179,7 @@ La app estará en: **http://localhost:5000**
 | `SECRET_KEY` | Clave secreta de Flask para sesiones | ⚠️ Cambiar en producción |
 | `DATABASE_URL` | URI de conexión a la base de datos | SQLite local |
 | `ENCRYPTION_KEY` | Clave Fernet para cifrar credenciales en BD | ⚠️ Cambiar en producción |
+| `MARKETING_CRON_INTERVAL_SECONDS` | Intervalo del scheduler de CronJobs de marketing en Docker | `60` |
 
 > La configuración de **SMTP** e **IA** se gestiona desde la interfaz web por cada empresa.
 
@@ -240,7 +245,7 @@ python -m pytest tests/test_app.py -v
 python -m pytest tests/test_services.py::TestPDFService -v
 ```
 
-**Suite actual**: 66 tests cubriendo modelos, autenticación, rutas, servicios (PDF, CSV, IA), CRUD, seguridad multi-tenant y edge cases.
+**Suite actual**: 98 tests cubriendo modelos, autenticación, rutas, servicios (PDF, CSV, IA), marketing, soporte, CRUD, seguridad multi-tenant y edge cases.
 
 ---
 

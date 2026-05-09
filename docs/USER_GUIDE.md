@@ -1,4 +1,4 @@
-# 📖 Guía de Usuario — Bitácora SaaS
+# 📖 Guía de Usuario — Bitácora SaaS by KzmCITO - Kassim Assad Mosri Rodríguez
 
 > Sistema de Gestión Operativa Multi-Empresa con analítica IA, calendario visual y reportes PDF.
 
@@ -140,23 +140,45 @@ Accesible para Administradores, Managers y Visores.
 
 ---
 
-## 8. Gestión de Empresas (Superuser)
+## 8. Marketing
+
+Disponible para Administradores, Managers y Visores.
+
+- Crea campañas con objetivo, audiencia, oferta, URL destino, presupuesto, plataformas y copy para RRSS.
+- Comparte campañas en Facebook, X, LinkedIn y WhatsApp desde el detalle.
+- Genera un **Kit IA** con variantes de copy, ángulos para Meta/Google/LinkedIn Ads y sugerencias de viralización.
+- Importa audiencias desde CSV con columnas: `User Id`, `User Name`, `Profile URL`, `Profile Picture`, `Biography`, `Is Verified`, `Friendship Status`, `Join Status Text`, `Scraped At`.
+- Crea CronJobs de contenido para preparar publicaciones programadas. El servicio `scheduler` procesa los vencidos.
+
+---
+
+## 9. Soporte Técnico
+
+- Entra a **Soporte** para abrir un chat de ayuda por empresa.
+- Adjunta archivos de texto, imágenes, PDFs, Office, CSV o comprimidos.
+- El Superuser puede responder en el chat y cambiar el estado del caso.
+- Si la empresa tiene celular de soporte configurado, el botón **Abrir WhatsApp** crea el chat con mensaje precargado.
+
+---
+
+## 10. Gestión de Empresas (Superuser)
 
 El **Superuser** es el administrador global del sistema SaaS:
 
-- **Crear empresa**: Define nombre, datos generales, fiscales, SMTP e IA.
+- **Crear empresa**: Define nombre, datos generales, fiscales, SMTP, IA y celular de soporte WhatsApp.
 - **Editar empresa**: Actualiza cualquier dato incluyendo logo y constancia fiscal.
 - **Activar/Desactivar**: Desactiva una empresa sin eliminar datos.
 - **Cambiar empresa activa**: Desde el listado, haz clic en **Usar** para cambiar la empresa de trabajo.
 
 ---
 
-## 9. Configuración de Empresa
+## 11. Configuración de Empresa
 
 Solo **Administradores** y **Superuser** acceden a la configuración:
 
 ### Tab General
 - Nombre, representante legal, dirección, teléfono, email de contacto, sitio web, logo.
+- Celular de soporte WhatsApp: sólo editable por Superuser, con código de país.
 
 ### Tab Fiscal
 - RFC, razón social, régimen fiscal, constancia de situación fiscal (PDF adjunto).
@@ -171,7 +193,7 @@ Solo **Administradores** y **Superuser** acceden a la configuración:
 
 ---
 
-## 10. Gestión de Usuarios
+## 12. Gestión de Usuarios
 
 Solo **Administradores** de la empresa:
 
@@ -182,7 +204,7 @@ Solo **Administradores** de la empresa:
 
 ---
 
-## 11. Preguntas Frecuentes (FAQ)
+## 13. Preguntas Frecuentes (FAQ)
 
 | Pregunta | Respuesta |
 |----------|-----------|

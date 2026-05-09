@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Tests completos para Bitácora SaaS.
+Tests completos para Bitácora SaaS by KzmCITO - Kassim Assad Mosri Rodríguez.
 Ejecutar con: python -m pytest tests/ -v --cov=app
 """
 import pytest
@@ -181,6 +181,26 @@ class TestTaskModel:
 # ===== Tests de Autenticación =====
 
 class TestAuth:
+    def test_pricing_page_is_public(self, client, init_db):
+        response = client.get('/pricing')
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        assert 'Bitácora SaaS para operaciones con evidencia' in html
+        assert 'Starter' in html
+        assert 'Business' in html
+
+    def test_demo_request_creates_commercial_entry(self, client, init_db):
+        response = client.post('/request-demo', data={
+            'name': 'Lead Test',
+            'company': 'Lead Corp',
+            'email': 'lead@example.com',
+            'plan': 'pro',
+            'team_size': '16-50',
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        assert 'Solicitud recibida' in html
+
     def test_login_page(self, client, init_db):
         response = client.get('/login')
         assert response.status_code == 200

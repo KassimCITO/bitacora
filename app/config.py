@@ -56,6 +56,10 @@ class Config:
     MAIL_PASSWORD = None
     MAIL_DEFAULT_SENDER = 'noreply@bitacora.app'
 
+    # Entrada comercial publica
+    SALES_LEADS_EMAIL = os.environ.get('SALES_LEADS_EMAIL')
+    LEAD_INBOX_PATH = os.environ.get('LEAD_INBOX_PATH')
+
 
 class DevelopmentConfig(Config):
     """Configuración de desarrollo."""

@@ -188,8 +188,7 @@ def share_whatsapp(task_id):
         from flask import abort
         abort(403)
 
-    company = _get_company()
-    company_name = company.nombre if company else 'Bitácora'
+    brand_name = 'Bitácora SaaS - PC y Sistemas Mosri'
 
     message = (
         f'📋 *Tarea:* {task.nombre}\n'
@@ -197,7 +196,7 @@ def share_whatsapp(task_id):
         f'🔥 *Prioridad:* {task.prioridad_label}\n'
         f'👤 *Asignado a:* {task.usuario_asignado.nombre_completo}\n'
         f'📈 *Avance:* {task.ultimo_avance}%\n\n'
-        f'📄 Descarga el reporte completo en {company_name}.'
+        f'📎 Descarga el reporte completo en *{brand_name}*.'
     )
 
     whatsapp_url = f'https://wa.me/?text={urllib.parse.quote(message)}'

@@ -1,5 +1,5 @@
 # ============================================
-# Bitácora SaaS — Docker Compose
+# Bitácora SaaS by KzmCITO - Kassim Assad Mosri Rodríguez — Docker Compose
 # Servicios: web (Flask+Gunicorn), db (PostgreSQL), nginx
 # ============================================
 services:
@@ -34,6 +34,7 @@ services:
         condition: service_healthy
     environment:
       FLASK_CONFIG: production
+      FLASK_APP: run.py
       SECRET_KEY: ${SECRET_KEY:-bitacora-secret-key-change-in-production}
       DATABASE_URL: postgresql://bitacora_user:bitacora_pass@db:5432/bitacora_db
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-generate-a-real-fernet-key}
@@ -41,6 +42,35 @@ services:
       - "5000:5000"
     volumes:
       - uploads:/app/uploads
+      - instance:/app/instance
+    networks:
+      - bitacora_net
+
+  scheduler:
+    build: .
+    container_name: bitacora_scheduler
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      FLASK_CONFIG: production
+      FLASK_APP: run.py
+      SECRET_KEY: ${SECRET_KEY:-bitacora-secret-key-change-in-production}
+      DATABASE_URL: postgresql://bitacora_user:bitacora_pass@db:5432/bitacora_db
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-generate-a-real-fernet-key}
+      MARKETING_CRON_INTERVAL_SECONDS: ${MARKETING_CRON_INTERVAL_SECONDS:-60}
+    command: >
+      sh -c "while true; do
+      flask marketing run-due-jobs;
+      sleep $${MARKETING_CRON_INTERVAL_SECONDS};
+      done"
+    healthcheck:
+      disable: true
+    volumes:
+      - uploads:/app/uploads
+      - instance:/app/instance
     networks:
       - bitacora_net
 
@@ -64,3 +94,4 @@ networks:
 volumes:
   pgdata:
   uploads:
+  instance:

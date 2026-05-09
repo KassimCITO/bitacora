@@ -172,7 +172,7 @@
                         <td>
                             <div class="fw-medium">{{ task.nombre | truncate(45) }}</div>
                             {% if task.descripcion %}
-                            <small class="text-muted">{{ task.descripcion | truncate(60) }}</small>
+                            <small class="text-muted">{{ task.descripcion | plain_text | truncate(60) }}</small>
                             {% endif %}
                         </td>
                         <td>

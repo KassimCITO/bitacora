@@ -1,6 +1,6 @@
-# 📋 Bitácora SaaS — Sistema de Gestión Operativa Multi-Empresa
+# 📋 Bitácora SaaS by KzmCITO - Kassim Assad Mosri Rodríguez — Sistema de Gestión Operativa Multi-Empresa
 
-Plataforma SaaS multi-tenant para gestión de tareas operativas con seguimiento detallado (bitácora de avances), analítica con IA, calendario visual, generación de reportes PDF y compartición vía email/WhatsApp.
+Plataforma SaaS multi-tenant para gestión de tareas operativas con seguimiento detallado (bitácora de avances), analítica con IA, calendario visual, generación de reportes PDF, marketing asistido por IA, soporte técnico y compartición vía email/WhatsApp.
 
 ## 🚀 Inicio Rápido
 
@@ -64,8 +64,8 @@ bitácora/
 │   ├── config.py            # Configuración (dev/prod/test)
 │   ├── extensions.py        # Extensiones Flask
 │   ├── models/              # Modelos: Company, Group, User, Task, etc.
-│   ├── routes/              # Blueprints: auth, dashboard, tasks, companies, groups, analytics, reports, api
-│   ├── services/            # Servicios: IA, PDF, email, CSV
+│   ├── routes/              # Blueprints: auth, dashboard, tasks, marketing, support, reports, api
+│   ├── services/            # Servicios: IA, PDF, email, CSV, marketing, soporte
 │   ├── templates/           # Plantillas Jinja2
 │   ├── static/              # CSS, JS (calendar, analytics), imágenes
 │   └── utils/               # Decoradores, helpers, sanitizador, crypto
@@ -100,6 +100,8 @@ bitácora/
 - **Dashboard** con calendario visual (Diario/Semanal/Mensual/Anual) y mapa de calor
 - **Gestión de tareas** con bitácora de avances, adjuntos y compartición
 - **Analítica con IA** (OpenAI, Gemini, Anthropic) — gráficos de pie por empresa, grupo y usuario
+- **Marketing** con campañas, copy RRSS, importación CSV Facebook, kit IA y CronJobs
+- **Soporte técnico** con chat por empresa, adjuntos y enlace WhatsApp al celular configurado
 - **Reportes PDF** profesionales con logo y datos de empresa
 - **Exportación CSV** con filtros
 - **Email** con configuración SMTP por empresa
@@ -121,6 +123,8 @@ ENCRYPTION_KEY=tu-fernet-key      # Generar con: python -c "from cryptography.fe
 ```bash
 python -m pytest tests/ -v --cov=app
 ```
+
+Suite actual: **98 tests**.
 
 ## 🛠️ Stack Tecnológico
 

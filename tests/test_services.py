@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Tests adicionales para Bitácora SaaS.
+Tests adicionales para Bitácora SaaS by KzmCITO - Kassim Assad Mosri Rodríguez.
 Cubre: Servicios, CRUD, Seguridad y Edge Cases.
 Ejecutar con: python -m pytest tests/ -v --cov=app
 """
@@ -20,6 +20,8 @@ from app.models.group import Group
 from app.models.task import Task
 from app.models.task_log import TaskLog
 from app.models.attachment import Attachment
+from app.models.marketing import MarketingAudienceContact, MarketingCampaign, MarketingCronJob
+from app.models.support import SupportMessage, SupportThread
 
 
 @pytest.fixture(scope='module')
@@ -217,6 +219,21 @@ class TestFiscalPDFService:
         assert 'HERIBERTO JARA OTE' in data['direccion']
         assert data['regimen_fiscal'] == 'Régimen de las Personas Físicas con Actividades Empresariales y Profesionales'
 
+    def test_image_only_constancia_returns_recovery_message(self, tmp_path, monkeypatch):
+        from app.services import fiscal_pdf_service
+
+        monkeypatch.setattr(fiscal_pdf_service.shutil, 'which', lambda _: None)
+        constancia = tmp_path / 'escaneada.pdf'
+        constancia.write_bytes(
+            b'%PDF-1.4\n1 0 obj\n<< /Type /XObject /Subtype /Image >>\nendobj\n%%EOF'
+        )
+
+        data = fiscal_pdf_service.extract_constancia_fiscal_data(str(constancia))
+
+        assert data['__error_code__'] == 'unreadable_pdf'
+        assert 'escaneada' in data['__error__'] or 'imagen' in data['__error__']
+        assert 'PDF original del SAT' in data['__error__']
+
 
 class TestExportService:
     def test_csv_export(self, app, init_db):
@@ -348,6 +365,100 @@ class TestTaskCRUD:
             }, follow_redirects=True)
             assert response.status_code == 200
 
+    def test_task_list_strips_rich_text_preview(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            task = Task.query.filter_by(nombre='Tarea nogroup').first()
+            task.descripcion = '<p>Cliente <strong>VIP</strong></p>'
+            _db.session.commit()
+
+            response = client.get('/tasks/')
+            body = response.data.decode('utf-8')
+
+            assert response.status_code == 200
+            assert 'Cliente VIP' in body
+            assert '<strong>VIP</strong>' not in body
+
+    def test_task_detail_shows_elapsed_between_logs(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            task = Task.query.filter_by(nombre='Tarea A1 Editada').first() or Task.query.filter_by(nombre='Tarea A1').first()
+
+            response = client.get(f'/tasks/{task.id}')
+            body = response.data.decode('utf-8')
+
+            assert response.status_code == 200
+            assert 'para realizar avance' in body
+
+    def test_task_image_attachment_preview_gallery(self, client, init_db, app, tmp_path):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            task = Task.query.filter_by(nombre='Tarea A1 Editada').first() or Task.query.filter_by(nombre='Tarea A1').first()
+            user = User.query.filter_by(username='admin_a').first()
+            image_path = tmp_path / 'preview.png'
+            image_path.write_bytes(
+                b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
+                b'\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04'
+                b'\x00\x01\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82'
+            )
+            attachment = Attachment(
+                task_id=task.id,
+                usuario_id=user.id,
+                nombre_archivo='preview.png',
+                ruta_archivo=str(image_path),
+                tipo_mime='image/png',
+                tamano=image_path.stat().st_size,
+            )
+            _db.session.add(attachment)
+            _db.session.commit()
+
+            detail = client.get(f'/tasks/{task.id}')
+            preview = client.get(f'/tasks/{task.id}/preview/{attachment.id}')
+
+            assert detail.status_code == 200
+            assert 'taskGalleryModal' in detail.data.decode('utf-8')
+            assert 'task-image-thumb' in detail.data.decode('utf-8')
+            assert preview.status_code == 200
+            assert preview.content_type.startswith('image/png')
+
+    def test_task_image_attachment_delete_button_removes_image(self, client, init_db, app, tmp_path):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            task = Task.query.filter_by(nombre='Tarea A1 Editada').first() or Task.query.filter_by(nombre='Tarea A1').first()
+            user = User.query.filter_by(username='admin_a').first()
+            image_path = tmp_path / 'delete-me.png'
+            image_path.write_bytes(
+                b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
+                b'\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04'
+                b'\x00\x01\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82'
+            )
+            attachment = Attachment(
+                task_id=task.id,
+                usuario_id=user.id,
+                nombre_archivo='delete-me.png',
+                ruta_archivo=str(image_path),
+                tipo_mime='image/png',
+                tamano=image_path.stat().st_size,
+            )
+            _db.session.add(attachment)
+            _db.session.commit()
+            attachment_id = attachment.id
+
+            detail = client.get(f'/tasks/{task.id}')
+            response = client.post(
+                f'/tasks/{task.id}/delete-image/{attachment_id}',
+                follow_redirects=True,
+            )
+
+            assert 'bi-trash3' in detail.data.decode('utf-8')
+            assert response.status_code == 200
+            assert _db.session.get(Attachment, attachment_id) is None
+            assert not image_path.exists()
+
 
 class TestGroupCRUD:
     def test_create_group(self, client, init_db, app):
@@ -370,6 +481,159 @@ class TestGroupCRUD:
             g = Group.query.filter_by(nombre='Nuevo Grupo').first()
             response = client.post(f'/groups/{g.id}/delete', follow_redirects=True)
             assert response.status_code == 200
+
+
+class TestMarketingCRUD:
+    def test_create_marketing_campaign_with_rich_text(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            user = User.query.filter_by(username='usr_a').first()
+
+            response = client.post('/marketing/create', data={
+                'nombre': 'Campaña Marketplace',
+                'responsable_id': str(user.id),
+                'estado': 'planeacion',
+                'canal': 'marketplace',
+                'prioridad': 'alta',
+                'presupuesto': '1500',
+                'fecha_inicio': '2026-05-01T10:00',
+                'fecha_fin': '2026-05-20T18:00',
+                'objetivo': '<p>Subir ventas <strong>20%</strong></p>',
+                'audiencia': '<p>Clientes B2B</p>',
+                'mensaje': '<p>Oferta principal</p>',
+                'notas': '<p><a class="pdf-viewer-link" data-pdf-url="/uploads/test.pdf" href="/uploads/test.pdf"><span class="pdf-viewer-icon"></span><span class="pdf-viewer-copy"><span class="pdf-viewer-kicker">Documento PDF</span><span class="pdf-viewer-name">brief.pdf</span></span></a></p>',
+            }, follow_redirects=True)
+
+            campaign = MarketingCampaign.query.filter_by(nombre='Campaña Marketplace').first()
+            assert response.status_code == 200
+            assert campaign is not None
+            assert campaign.canal == 'marketplace'
+            assert '<strong>20%</strong>' in campaign.objetivo
+            assert 'pdf-viewer-name' in campaign.notas
+
+    def test_marketing_list_preview_strips_html(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            response = client.get('/marketing/')
+            body = response.data.decode('utf-8')
+
+            assert response.status_code == 200
+            assert 'Subir ventas 20%' in body
+            assert '<strong>20%</strong>' not in body
+
+    def test_marketing_imports_facebook_csv_contacts(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            campaign = MarketingCampaign.query.filter_by(nombre='Campaña Marketplace').first()
+            if campaign is None:
+                user = User.query.filter_by(username='usr_a').first()
+                campaign = MarketingCampaign(
+                    nombre='Campaña Marketplace',
+                    canal='marketplace',
+                    estado='planeacion',
+                    prioridad='alta',
+                    responsable_id=user.id,
+                    creado_por_id=user.id,
+                    empresa_id=user.empresa_id,
+                )
+                _db.session.add(campaign)
+                _db.session.commit()
+            csv_data = (
+                'User Id,User Name,Profile URL,Profile Picture,Biography,Is Verified,Friendship Status,Join Status Text,Scraped At\n'
+                '100089577999353,Sandy Moreno,https://www.facebook.com/sandy.moreno.734193,https://example.com/p.jpg,Apatzingán de la Constitución,NO,CANNOT_REQUEST,Se unió el lunes,2025-04-30T18:45:30.617Z\n'
+            )
+
+            response = client.post(
+                '/marketing/import',
+                data={
+                    'campaign_id': str(campaign.id),
+                    'csv_file': (BytesIO(csv_data.encode('utf-8')), 'facebook.csv'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=True,
+            )
+
+            contact = MarketingAudienceContact.query.filter_by(external_user_id='100089577999353').first()
+            assert response.status_code == 200
+            assert contact is not None
+            assert contact.user_name == 'Sandy Moreno'
+            assert contact.campaign_id == campaign.id
+
+    def test_marketing_cron_job_runner_completes_one_time_job(self, app, init_db):
+        with app.app_context():
+            from datetime import datetime, timedelta
+            from app.services.marketing_service import run_due_marketing_jobs
+
+            campaign = MarketingCampaign.query.filter_by(nombre='Campaña Marketplace').first()
+            if campaign is None:
+                creator = User.query.filter_by(username='admin_a').first()
+                campaign = MarketingCampaign(
+                    nombre='Campaña Marketplace',
+                    canal='marketplace',
+                    estado='planeacion',
+                    prioridad='alta',
+                    responsable_id=creator.id,
+                    creado_por_id=creator.id,
+                    empresa_id=creator.empresa_id,
+                )
+                _db.session.add(campaign)
+                _db.session.commit()
+            creator = User.query.filter_by(username='admin_a').first()
+            job = MarketingCronJob(
+                nombre='Publicación test',
+                empresa_id=campaign.empresa_id,
+                campaign_id=campaign.id,
+                creado_por_id=creator.id,
+                plataforma='whatsapp',
+                contenido='Oferta programada',
+                next_run_at=datetime.utcnow() - timedelta(minutes=1),
+                status='activo',
+            )
+            _db.session.add(job)
+            _db.session.commit()
+
+            processed = run_due_marketing_jobs()
+            _db.session.refresh(job)
+
+            assert any(item['id'] == job.id for item in processed)
+            assert job.status == 'completado'
+            assert 'Contenido preparado' in job.last_result
+
+
+class TestSupportChat:
+    def test_user_opens_support_chat_and_uploads_file(self, client, init_db, app):
+        with app.app_context():
+            company = Company.query.filter_by(nombre='Empresa A').first()
+            company.support_whatsapp_phone = '5215512345678'
+            _db.session.commit()
+
+            client.get('/logout')
+            client.post('/login', data={'username': 'usr_a', 'password': 'test123'})
+            response = client.post('/support/create', data={
+                'subject': 'No puedo generar reporte',
+                'priority': 'alta',
+                'body': 'Necesito ayuda con un PDF.',
+            }, follow_redirects=True)
+
+            thread = SupportThread.query.filter_by(subject='No puedo generar reporte').first()
+            assert response.status_code == 200
+            assert thread is not None
+            assert thread.whatsapp_phone == '5215512345678'
+
+            upload = client.post(
+                f'/support/{thread.id}/messages',
+                data={
+                    'body': 'Adjunto evidencia.',
+                    'files': (BytesIO(b'evidencia'), 'evidencia.txt'),
+                },
+                content_type='multipart/form-data',
+            )
+
+            assert upload.status_code == 200
+            assert SupportMessage.query.filter_by(thread_id=thread.id).count() == 2
 
 
 class TestCompanyCRUD:
@@ -416,7 +680,8 @@ class TestCompanyCRUD:
             assert c is not None
             assert c.rfc == 'NEW010203AB7'
             assert c.razon_social == 'NUEVA FISCAL SA DE CV'
-            assert c.app_key == generate_app_key(c.razon_social, app.config['SECRET_KEY'])
+            assert c.app_key_expires_at is not None
+            assert c.app_key == generate_app_key(c.razon_social, app.config['SECRET_KEY'], c.app_key_expires_at)
             assert f'/companies/{c.id}/edit' in response.headers['Location']
 
     def test_superuser_create_rejects_non_pdf_csf(self, client, init_db, app):
@@ -563,6 +828,35 @@ class TestCompanyCRUD:
             assert c.rfc == 'KEEP010203AB1'
             assert c.razon_social == 'DATOS ORIGINALES SA DE CV'
 
+    def test_image_only_csf_shows_actionable_recovery_message(self, client, init_db, app, monkeypatch):
+        with app.app_context():
+            from app.services import fiscal_pdf_service
+
+            monkeypatch.setattr(fiscal_pdf_service.shutil, 'which', lambda _: None)
+            client.get('/logout')
+            client.post('/login', data={'username': 'su2', 'password': 'test123'})
+            c = Company.query.filter_by(nombre='Empresa A').first()
+            image_pdf = BytesIO(
+                b'%PDF-1.4\n1 0 obj\n<< /Type /XObject /Subtype /Image >>\nendobj\n%%EOF'
+            )
+
+            response = client.post(
+                f'/companies/{c.id}/edit',
+                data={
+                    'nombre': c.nombre,
+                    'mail_port': '587',
+                    'constancia_fiscal': (image_pdf, 'constancia.pdf'),
+                },
+                content_type='multipart/form-data',
+                follow_redirects=True,
+            )
+
+            body = response.data.decode('utf-8')
+            assert response.status_code == 400
+            assert 'No se pudo procesar la CSF' in body
+            assert 'escaneada' in body or 'imagen' in body
+            assert 'PDF original del SAT' in body
+
     def test_superuser_csf_upload_redirects_back_to_edit(self, client, init_db, app):
         with app.app_context():
             client.get('/logout')
@@ -622,16 +916,40 @@ class TestCompanyCRUD:
 
             assert response.status_code == 200
             assert c.app_key is not None
+            assert c.app_key_valid_days == 365
+            assert c.app_key_issued_at is not None
+            assert c.app_key_expires_at is not None
             assert re.fullmatch(r'KMR-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}', c.app_key)
-            assert c.app_key == generate_app_key(c.razon_social, app.config['SECRET_KEY'])
+            assert c.app_key == generate_app_key(c.razon_social, app.config['SECRET_KEY'], c.app_key_expires_at)
+
+    def test_superuser_app_key_preview_uses_days(self, client, init_db, app):
+        with app.app_context():
+            client.get('/logout')
+            client.post('/login', data={'username': 'su2', 'password': 'test123'})
+
+            short = client.post('/companies/app-key/preview', json={
+                'razon_social': 'CLIENTE PREVIEW SA DE CV',
+                'app_key_valid_days': 30,
+            })
+            long = client.post('/companies/app-key/preview', json={
+                'razon_social': 'CLIENTE PREVIEW SA DE CV',
+                'app_key_valid_days': 365,
+            })
+
+            assert short.status_code == 200
+            assert long.status_code == 200
+            assert short.json['app_key'] != long.json['app_key']
+            assert short.json['valid_days'] == 30
+            assert long.json['valid_days'] == 365
 
     def test_invalid_app_key_blocks_app_until_correct_key(self, client, init_db, app):
         with app.app_context():
-            from app.services.app_key_service import generate_app_key
+            from app.services.app_key_service import build_app_key_window, generate_app_key
 
             c = Company.query.filter_by(nombre='Empresa A').first()
             c.razon_social = 'EMPRESA A FISCAL SA DE CV'
             c.app_key = 'KMR-XXXXX-XXXXX-XXXXX-XXXXX'
+            c.app_key_issued_at, c.app_key_expires_at, c.app_key_valid_days = build_app_key_window(365)
             _db.session.commit()
 
             client.get('/logout')
@@ -640,7 +958,13 @@ class TestCompanyCRUD:
             assert blocked.status_code == 302
             assert f'/companies/{c.id}/edit' in blocked.headers['Location']
 
-            valid_key = generate_app_key(c.razon_social, app.config['SECRET_KEY'])
+            c.razon_social = None
+            c.app_key = None
+            c.app_key_issued_at = None
+            c.app_key_expires_at = None
+            _db.session.commit()
+
+            valid_key = generate_app_key(c.razon_social, app.config['SECRET_KEY'], c.app_key_expires_at)
             response = client.post(f'/companies/{c.id}/edit', data={
                 'nombre': c.nombre,
                 'representante_legal': '',
@@ -655,6 +979,32 @@ class TestCompanyCRUD:
 
             allowed = client.get('/tasks/')
             assert allowed.status_code == 200
+
+    def test_expired_app_key_blocks_app(self, client, init_db, app):
+        with app.app_context():
+            from datetime import datetime, timezone, timedelta
+            from app.services.app_key_service import generate_app_key
+
+            c = Company.query.filter_by(nombre='Empresa A').first()
+            c.razon_social = 'EMPRESA A FISCAL SA DE CV'
+            c.app_key_issued_at = datetime.now(timezone.utc) - timedelta(days=10)
+            c.app_key_expires_at = datetime.now(timezone.utc) - timedelta(days=1)
+            c.app_key_valid_days = 9
+            c.app_key = generate_app_key(c.razon_social, app.config['SECRET_KEY'], c.app_key_expires_at)
+            _db.session.commit()
+
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            blocked = client.get('/tasks/')
+
+            assert blocked.status_code == 302
+            assert f'/companies/{c.id}/edit' in blocked.headers['Location']
+
+            c.razon_social = None
+            c.app_key = None
+            c.app_key_issued_at = None
+            c.app_key_expires_at = None
+            _db.session.commit()
 
     def test_invalid_submitted_app_key_does_not_save_changes(self, client, init_db, app):
         with app.app_context():
@@ -682,10 +1032,33 @@ class TestCompanyCRUD:
             assert c.app_key is None
             assert c.telefono == '111'
 
+            c.razon_social = None
+            c.telefono = ''
+            c.app_key = None
+            c.app_key_issued_at = None
+            c.app_key_expires_at = None
+            _db.session.commit()
+
 
 # ===== Tests de Seguridad =====
 
 class TestSecurity:
+    def test_login_missing_csrf_redirects_with_friendly_message(self, client, init_db, app):
+        with app.app_context():
+            previous = app.config.get('WTF_CSRF_ENABLED')
+            app.config['WTF_CSRF_ENABLED'] = True
+            try:
+                response = client.post('/login', data={
+                    'username': 'admin_a',
+                    'password': 'test123',
+                }, follow_redirects=True)
+                body = response.data.decode('utf-8')
+                assert response.status_code == 200
+                assert 'La sesión de acceso expiró' in body
+                assert 'CSRF session token is missing' not in body
+            finally:
+                app.config['WTF_CSRF_ENABLED'] = previous
+
     def test_visor_cannot_create_task(self, client, init_db):
         client.get('/logout')
         client.post('/login', data={'username': 'visor_a', 'password': 'test123'})
@@ -717,6 +1090,22 @@ class TestSecurity:
             task_a = Task.query.filter_by(nombre='Tarea A2').first()
             response = client.get(f'/tasks/{task_a.id}')
             assert response.status_code == 403
+
+    def test_whatsapp_share_uses_bitacora_brand_context(self, client, init_db, app):
+        with app.app_context():
+            import urllib.parse
+
+            client.get('/logout')
+            client.post('/login', data={'username': 'admin_a', 'password': 'test123'})
+            task = Task.query.filter_by(nombre='Tarea A2').first()
+
+            response = client.get(f'/reports/share/whatsapp/{task.id}', follow_redirects=False)
+            location = response.headers['Location']
+            decoded = urllib.parse.unquote(location)
+
+            assert response.status_code == 302
+            assert 'Bitácora SaaS - PC y Sistemas Mosri' in decoded
+            assert '📎' in decoded
 
 
 # ===== Tests Edge Cases =====

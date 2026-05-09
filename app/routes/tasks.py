@@ -16,7 +16,7 @@ from ..models.task_log import TaskLog
 from ..models.attachment import Attachment
 from ..models.user import User
 from ..models.group import Group
-from ..services.image_service import image_url, optimize_image_upload
+from ..services.image_service import image_url, is_image_file, optimize_image_upload
 from ..utils.decorators import role_required
 from ..utils.helpers import allowed_file, save_upload
 from ..utils.sanitizer import sanitize_html
@@ -56,6 +56,57 @@ def _format_elapsed(delta):
     return ' '.join(parts)
 
 
+def _as_utc(dt):
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _format_progress_elapsed(delta):
+    total_seconds = int(max(0, delta.total_seconds()))
+    if total_seconds < 60:
+        return 'Menos de 1 minuto para realizar avance'
+
+    minutes = total_seconds // 60
+    days, minutes = divmod(minutes, 1440)
+    hours, minutes = divmod(minutes, 60)
+
+    parts = []
+    if days:
+        parts.append(f"{days} día{'s' if days != 1 else ''}")
+    if hours:
+        parts.append(f"{hours} hora{'s' if hours != 1 else ''}")
+    if minutes or not parts:
+        parts.append(f"{minutes} minuto{'s' if minutes != 1 else ''}")
+
+    if len(parts) == 1:
+        duration = parts[0]
+    else:
+        duration = ', '.join(parts[:-1]) + ' y ' + parts[-1]
+    return f'{duration} para realizar avance'
+
+
+def _build_log_timeline(task, logs):
+    rows = []
+    previous_time = _as_utc(task.fecha_hora_inicio)
+
+    for log in logs:
+        current_time = _as_utc(log.fecha_hora)
+        elapsed_label = None
+        if previous_time and current_time:
+            elapsed_label = _format_progress_elapsed(current_time - previous_time)
+
+        rows.append({
+            'log': log,
+            'elapsed_label': elapsed_label,
+        })
+        previous_time = current_time or previous_time
+
+    return rows
+
+
 def _build_task_timeline(tasks):
     """Prepara tareas con separadores de tiempo entre una y otra."""
     rows = []
@@ -79,6 +130,44 @@ def _build_task_timeline(tasks):
         previous_task = task
         previous_time = current_time
 
+    return rows
+
+
+def _get_accessible_task(task_id):
+    task = Task.query.get_or_404(task_id)
+    empresa_id = _get_empresa_id()
+
+    if task.empresa_id != empresa_id:
+        abort(403)
+    if current_user.has_role('usuario') and task.usuario_asignado_id != current_user.id:
+        abort(403)
+
+    return task
+
+
+def _is_image_attachment(attachment):
+    mime = (attachment.tipo_mime or '').lower()
+    return mime.startswith('image/') or is_image_file(attachment.nombre_archivo)
+
+
+def _build_attachment_rows(task, attachments):
+    rows = []
+    gallery_index = 0
+    for attachment in attachments:
+        is_image = _is_image_attachment(attachment)
+        preview_url = (
+            url_for('tasks.preview_file', task_id=task.id, att_id=attachment.id)
+            if is_image else None
+        )
+        rows.append({
+            'attachment': attachment,
+            'is_image': is_image,
+            'gallery_index': gallery_index if is_image else None,
+            'preview_url': preview_url,
+            'download_url': url_for('tasks.download_file', task_id=task.id, att_id=attachment.id),
+        })
+        if is_image:
+            gallery_index += 1
     return rows
 
 
@@ -250,26 +339,23 @@ def editor_image_upload():
 @login_required
 def detail(task_id):
     """Detalle de una tarea con historial de avances."""
-    task = Task.query.get_or_404(task_id)
-    empresa_id = _get_empresa_id()
-
-    # Control de acceso multi-tenant
-    if task.empresa_id != empresa_id:
-        abort(403)
-
-    # Control de acceso: usuario normal solo ve sus tareas
-    if current_user.has_role('usuario') and task.usuario_asignado_id != current_user.id:
-        abort(403)
+    task = _get_accessible_task(task_id)
 
     # Historial ordenado cronológicamente
     logs = task.logs.order_by(None).order_by(TaskLog.fecha_hora.asc()).all()
     attachments = task.attachments.order_by(Attachment.fecha_subida.desc()).all()
+    log_rows = _build_log_timeline(task, logs)
+    attachment_rows = _build_attachment_rows(task, attachments)
+    gallery_images = [row for row in attachment_rows if row['is_image']]
 
     return render_template(
         'tasks/detail.html',
         task=task,
         logs=logs,
+        log_rows=log_rows,
         attachments=attachments,
+        attachment_rows=attachment_rows,
+        gallery_images=gallery_images,
     )
 
 
@@ -419,6 +505,7 @@ def upload_file(task_id):
 @login_required
 def download_file(task_id, att_id):
     """Descargar un archivo adjunto."""
+    _get_accessible_task(task_id)
     attachment = Attachment.query.get_or_404(att_id)
     if attachment.task_id != task_id:
         abort(404)
@@ -432,3 +519,51 @@ def download_file(task_id, att_id):
         download_name=attachment.nombre_archivo,
         as_attachment=True,
     )
+
+
+@tasks_bp.route('/<int:task_id>/preview/<int:att_id>')
+@login_required
+def preview_file(task_id, att_id):
+    """Previsualiza inline un adjunto de imagen validando acceso."""
+    _get_accessible_task(task_id)
+    attachment = Attachment.query.get_or_404(att_id)
+    if attachment.task_id != task_id:
+        abort(404)
+    if not _is_image_attachment(attachment):
+        abort(404)
+    if not os.path.exists(attachment.ruta_archivo):
+        flash('Archivo no encontrado.', 'danger')
+        return redirect(url_for('tasks.detail', task_id=task_id))
+
+    return send_file(
+        attachment.ruta_archivo,
+        mimetype=attachment.tipo_mime or None,
+        download_name=attachment.nombre_archivo,
+        as_attachment=False,
+    )
+
+
+@tasks_bp.route('/<int:task_id>/delete-image/<int:att_id>', methods=['POST'])
+@login_required
+@role_required('administrador', 'manager', 'usuario')
+def delete_image_file(task_id, att_id):
+    """Elimina un adjunto de imagen validando permisos de tarea."""
+    task = _get_accessible_task(task_id)
+    attachment = Attachment.query.get_or_404(att_id)
+    if attachment.task_id != task.id:
+        abort(404)
+    if not _is_image_attachment(attachment):
+        abort(404)
+
+    file_path = attachment.ruta_archivo
+    try:
+        db.session.delete(attachment)
+        db.session.commit()
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+        flash('Imagen eliminada correctamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar imagen: {str(e)}', 'danger')
+
+    return redirect(url_for('tasks.detail', task_id=task_id))

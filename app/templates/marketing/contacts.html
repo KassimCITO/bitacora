@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Audiencias — Marketing{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1"><i class="bi bi-people me-2 text-accent"></i>Audiencias importadas</h1>
+        <p class="text-muted mb-0">{{ pagination.total }} contacto{{ 's' if pagination.total != 1 else '' }}</p>
+    </div>
+    <a href="{{ url_for('marketing.list_campaigns') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Marketing
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+        <form method="GET" action="{{ url_for('marketing.contacts') }}" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small fw-medium">Campaña</label>
+                <select class="form-select form-select-sm" name="campaign_id">
+                    <option value="">Todas</option>
+                    {% for campaign in campaign_options %}
+                    <option value="{{ campaign.id }}" {{ 'selected' if filter_campaign_id == campaign.id }}>{{ campaign.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1"><i class="bi bi-funnel"></i> Filtrar</button>
+                <a href="{{ url_for('marketing.contacts') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {% if contacts %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Contacto</th>
+                        <th>Estado</th>
+                        <th>Unión</th>
+                        <th>Verificado</th>
+                        <th class="text-end pe-4">Scraped At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contact in contacts %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-semibold">
+                                {% if contact.profile_url %}
+                                <a href="{{ contact.profile_url }}" target="_blank" rel="noopener">{{ contact.user_name }}</a>
+                                {% else %}
+                                {{ contact.user_name }}
+                                {% endif %}
+                            </div>
+                            {% if contact.biography %}
+                            <small class="text-muted">{{ contact.biography|truncate(100) }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ contact.friendship_status or '—' }}</td>
+                        <td class="text-muted small">{{ contact.join_status_text or '—' }}</td>
+                        <td>
+                            {% if contact.is_verified %}
+                            <span class="badge bg-success-subtle text-success">Sí</span>
+                            {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary">No</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4 text-muted small">{{ contact.scraped_at.strftime('%d/%m/%Y %H:%M') if contact.scraped_at else '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-people display-4 text-muted"></i>
+            <p class="text-muted mt-2">Todavía no hay contactos importados.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

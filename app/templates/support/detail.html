@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Soporte #{{ thread.id }} — {{ app_name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('support.index') }}">Soporte</a></li>
+        <li class="breadcrumb-item active">#{{ thread.id }}</li>
+    </ol>
+</nav>
+
+<div class="support-chat-shell">
+    <aside class="support-chat-side">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+            <div>
+                <h1 class="h5 fw-bold mb-1">{{ thread.subject }}</h1>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-{{ thread.status_badge }}">{{ thread.status_label }}</span>
+                    <span class="badge bg-accent-subtle text-accent">{{ thread.priority_label }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="detail-item mb-3">
+            <span class="detail-label">Usuario</span>
+            <span class="detail-value">{{ thread.user.nombre_completo }}</span>
+        </div>
+        <div class="detail-item mb-3">
+            <span class="detail-label">Empresa</span>
+            <span class="detail-value">{{ company.nombre }}</span>
+        </div>
+        {% if whatsapp_url %}
+        <a class="btn btn-success w-100 mb-3" href="{{ whatsapp_url }}" target="_blank" rel="noopener">
+            <i class="bi bi-whatsapp"></i> Abrir WhatsApp
+        </a>
+        {% else %}
+        <div class="alert alert-warning py-2 small">
+            Falta configurar el celular de soporte en la empresa.
+        </div>
+        {% endif %}
+        {% if current_user.is_superuser %}
+        <form method="POST" action="{{ url_for('support.update_status', thread_id=thread.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="form-label small fw-medium">Estado</label>
+            <div class="input-group">
+                <select class="form-select" name="status">
+                    {% for value, label in statuses %}
+                    <option value="{{ value }}" {{ 'selected' if thread.status == value }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-outline-primary" type="submit"><i class="bi bi-check-lg"></i></button>
+            </div>
+        </form>
+        {% endif %}
+    </aside>
+
+    <section class="support-chat-main">
+        <div class="support-messages" id="supportMessages"
+             data-thread-id="{{ thread.id }}"
+             data-last-id="{{ (messages|last).id if messages else 0 }}">
+            {% for message in messages %}
+            <article class="support-message {{ 'support-message-staff' if message.is_staff else 'support-message-user' }}" data-message-id="{{ message.id }}">
+                <div class="support-message-meta">
+                    <strong>{{ message.user.nombre_completo }}</strong>
+                    <span>{{ message.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+                <div class="support-message-body">{{ message.body }}</div>
+                {% set attachments = message.attachments.all() %}
+                {% if attachments %}
+                <div class="support-attachments">
+                    {% for attachment in attachments %}
+                    <a href="{{ url_for('support.download_attachment', thread_id=thread.id, att_id=attachment.id) }}" class="support-attachment">
+                        <i class="bi bi-paperclip"></i>
+                        <span>{{ attachment.nombre_archivo }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </article>
+            {% endfor %}
+        </div>
+
+        <form class="support-composer" id="supportComposer"
+              action="{{ url_for('support.messages', thread_id=thread.id) }}"
+              method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea class="form-control" name="body" rows="3" placeholder="Escribe tu respuesta..."></textarea>
+            <div class="support-composer-actions">
+                <input type="file" class="form-control" name="files" multiple
+                       accept=".pdf,.png,.jpg,.jpeg,.gif,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.rar">
+                <button class="btn btn-primary" type="submit"><i class="bi bi-send"></i> Enviar</button>
+            </div>
+            <small class="text-muted">Formatos: texto, imágenes, PDF, Office, CSV, ZIP/RAR.</small>
+        </form>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const messagesEl = document.getElementById('supportMessages');
+    const composer = document.getElementById('supportComposer');
+    if (!messagesEl || !composer) { return; }
+
+    const endpoint = composer.action;
+    const csrfToken = '{{ csrf_token() }}';
+
+    function setLastId(id) {
+        const current = Number(messagesEl.dataset.lastId || 0);
+        if (id > current) {
+            messagesEl.dataset.lastId = String(id);
+        }
+    }
+
+    function attachmentLink(attachment) {
+        const link = document.createElement('a');
+        link.className = 'support-attachment';
+        link.href = attachment.url;
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-paperclip';
+        const span = document.createElement('span');
+        span.textContent = attachment.name;
+        link.append(icon, span);
+        return link;
+    }
+
+    function appendMessage(message) {
+        if (messagesEl.querySelector(`[data-message-id="${message.id}"]`)) { return; }
+        const article = document.createElement('article');
+        article.className = `support-message ${message.is_staff ? 'support-message-staff' : 'support-message-user'}`;
+        article.dataset.messageId = message.id;
+
+        const meta = document.createElement('div');
+        meta.className = 'support-message-meta';
+        const author = document.createElement('strong');
+        author.textContent = message.author;
+        const date = document.createElement('span');
+        date.textContent = message.created_at;
+        meta.append(author, date);
+
+        const body = document.createElement('div');
+        body.className = 'support-message-body';
+        body.textContent = message.body;
+
+        article.append(meta, body);
+        if (message.attachments && message.attachments.length) {
+            const files = document.createElement('div');
+            files.className = 'support-attachments';
+            message.attachments.forEach((attachment) => files.appendChild(attachmentLink(attachment)));
+            article.appendChild(files);
+        }
+        messagesEl.appendChild(article);
+        setLastId(message.id);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    async function pollMessages() {
+        const after = messagesEl.dataset.lastId || 0;
+        const response = await fetch(`${endpoint}?after=${encodeURIComponent(after)}`, {
+            headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) { return; }
+        const data = await response.json();
+        (data.messages || []).forEach(appendMessage);
+    }
+
+    composer.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const formData = new FormData(composer);
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken, 'Accept': 'application/json' },
+            body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            alert(data.error || 'No se pudo enviar el mensaje.');
+            return;
+        }
+        composer.reset();
+        appendMessage(data.message);
+    });
+
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    window.setInterval(pollMessages, 4000);
+})();
+</script>
+{% endblock %}

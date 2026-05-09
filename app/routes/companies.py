@@ -4,18 +4,23 @@ Rutas de gestión de empresas (superuser y administradores).
 CRUD completo con tabs: General, Email, IA.
 """
 import os
+from datetime import timezone
 
 from flask import (
     Blueprint, render_template, redirect, url_for, flash,
-    request, current_app, session
+    request, current_app, session, jsonify, make_response
 )
 from flask_login import login_required, current_user
 from ..extensions import db
 from ..models.company import Company
 from ..services.app_key_service import (
+    build_app_key_window,
+    DEFAULT_APP_KEY_VALID_DAYS,
+    ensure_aware,
     generate_app_key,
     is_valid_app_key_format,
     normalize_app_key,
+    normalize_valid_days,
     validate_app_key,
 )
 from ..services.fiscal_pdf_service import extract_constancia_fiscal_data
@@ -27,14 +32,43 @@ companies_bp = Blueprint('companies', __name__, url_prefix='/companies')
 
 
 def _expected_app_key(company):
-    return generate_app_key(company.razon_social, current_app.config.get('SECRET_KEY'))
+    return generate_app_key(
+        company.razon_social,
+        current_app.config.get('SECRET_KEY'),
+        company.app_key_expires_at,
+    )
 
 
-def _set_expected_app_key(company):
+def _set_expected_app_key(company, valid_days=None):
+    issued_at, expires_at, valid_days = build_app_key_window(
+        valid_days if valid_days is not None else company.app_key_valid_days,
+    )
+    company.app_key_valid_days = valid_days
+    company.app_key_issued_at = issued_at
+    company.app_key_expires_at = expires_at
     app_key = _expected_app_key(company)
     if app_key:
         company.app_key = app_key
     return app_key
+
+
+def _date_input_value(dt):
+    dt = ensure_aware(dt)
+    return dt.strftime('%d/%m/%Y %H:%M') if dt else '—'
+
+
+def _license_days_from_form():
+    return normalize_valid_days(request.form.get('app_key_valid_days', DEFAULT_APP_KEY_VALID_DAYS))
+
+
+def _sync_superuser_license(company):
+    if not current_user.is_superuser:
+        return None
+    valid_days = _license_days_from_form()
+    if company.razon_social:
+        return _set_expected_app_key(company, valid_days)
+    company.app_key_valid_days = valid_days
+    return None
 
 
 def _apply_constancia_data(company, path):
@@ -72,6 +106,9 @@ def _fiscal_snapshot(company):
         'regimen_fiscal': company.regimen_fiscal,
         'constancia_fiscal_path': company.constancia_fiscal_path,
         'app_key': company.app_key,
+        'app_key_valid_days': company.app_key_valid_days,
+        'app_key_issued_at': company.app_key_issued_at,
+        'app_key_expires_at': company.app_key_expires_at,
     }
 
 
@@ -86,6 +123,37 @@ def _validate_csf_file(file):
     if not allowed_file(file.filename) or file.filename.rsplit('.', 1)[1].lower() != 'pdf':
         return 'La CSF debe ser un archivo PDF válido.'
     return None
+
+
+def _missing_csf_data_message(missing_required, fiscal_data):
+    missing = ' ni '.join(missing_required)
+    diagnostics = fiscal_data.get('__diagnostics__') or {}
+    methods = diagnostics.get('methods') or []
+    image_like = diagnostics.get('image_markers', 0) > 0 or (
+        diagnostics.get('pdf_pages', 0) > 0 and diagnostics.get('pypdf_text_chars', 0) == 0
+    )
+
+    if image_like:
+        if 'ocr' in methods:
+            return (
+                f'No se detectó {missing} en la CSF. El PDF parece escaneado; se intentó OCR, '
+                'pero el reconocimiento no encontró los datos obligatorios. Sube una versión con mejor '
+                'resolución/contraste o el PDF original del SAT con texto seleccionable.'
+            )
+        return (
+            f'No se detectó {missing} en la CSF. El PDF parece escaneado o imagen-only y no se pudo '
+            'leer texto fiscal útil. Sube el PDF original del SAT con texto seleccionable; si solo tienes '
+            'escaneo, habilita OCR en el servidor.'
+        )
+
+    if methods:
+        return (
+            f'No se detectó {missing} en la CSF. El archivo sí contiene texto, pero no coincide con el '
+            'formato esperado de la Constancia de Situación Fiscal del SAT. Verifica que sea la CSF completa '
+            'y vigente, no una opinión de cumplimiento, acuse u otro PDF.'
+        )
+
+    return f'No se detectó {missing} en la CSF.'
 
 
 def _process_constancia_upload(company, file, should_generate_app_key):
@@ -110,7 +178,7 @@ def _process_constancia_upload(company, file, should_generate_app_key):
             pass
         _restore_fiscal_snapshot(company, snapshot)
         if missing_required:
-            error = 'No se detectó ' + ' ni '.join(missing_required) + ' en la CSF.'
+            error = _missing_csf_data_message(missing_required, fiscal_data)
         return False, [], error
 
     company.constancia_fiscal_path = ruta
@@ -143,6 +211,32 @@ def list_companies():
     return render_template('companies/list.html', companies=companies)
 
 
+@companies_bp.route('/app-key/preview', methods=['POST'])
+@login_required
+@superuser_required
+def app_key_preview():
+    """Genera una APP-Key preview sin exponer SECRET_KEY al navegador."""
+    payload = request.get_json(silent=True) or request.form
+    razon_social = (payload.get('razon_social') or '').strip()
+    valid_days = normalize_valid_days(payload.get('app_key_valid_days'))
+    if not razon_social:
+        return jsonify({'error': 'Primero se necesita una razón social fiscal.'}), 400
+    issued_at, expires_at, valid_days = build_app_key_window(valid_days)
+    app_key = generate_app_key(
+        razon_social,
+        current_app.config.get('SECRET_KEY'),
+        expires_at,
+    )
+
+    return jsonify({
+        'app_key': app_key,
+        'valid_days': valid_days,
+        'issued_at': issued_at.astimezone(timezone.utc).isoformat(),
+        'expires_at': expires_at.astimezone(timezone.utc).isoformat(),
+        'expires_label': _date_input_value(expires_at),
+    })
+
+
 @companies_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 @superuser_required
@@ -156,8 +250,10 @@ def create():
                 nombre=request.form.get('nombre', '').strip(),
                 representante_legal=request.form.get('representante_legal', '').strip(),
                 telefono=request.form.get('telefono', '').strip(),
+                support_whatsapp_phone=request.form.get('support_whatsapp_phone', '').strip(),
                 email_contacto=request.form.get('email_contacto', '').strip(),
                 sitio_web=request.form.get('sitio_web', '').strip(),
+                app_key_valid_days=_license_days_from_form(),
                 # Email
                 mail_server=request.form.get('mail_server', '').strip(),
                 mail_port=int(request.form.get('mail_port', 587)),
@@ -199,14 +295,20 @@ def create():
                 else:
                     flash('CSF cargada y APP-Key generada.', 'info')
 
+            if not validation_failed:
+                _sync_superuser_license(company)
+
             if validation_failed:
                 db.session.rollback()
-                return render_template(
+                rendered = render_template(
                     'companies/form.html',
                     company=company,
                     ai_providers=Company.AI_PROVIDERS,
                     image_url=image_url,
-                ), 400
+                )
+                response = make_response(rendered)
+                response.status_code = 400
+                return response
 
             db.session.add(company)
             db.session.commit()
@@ -245,8 +347,12 @@ def edit(company_id):
             company.nombre = request.form.get('nombre', company.nombre).strip()
             company.representante_legal = request.form.get('representante_legal', '').strip()
             company.telefono = request.form.get('telefono', '').strip()
+            if current_user.is_superuser:
+                company.support_whatsapp_phone = request.form.get('support_whatsapp_phone', '').strip()
             company.email_contacto = request.form.get('email_contacto', '').strip()
             company.sitio_web = request.form.get('sitio_web', '').strip()
+            if current_user.is_superuser:
+                company.app_key_valid_days = _license_days_from_form()
 
             # Email
             company.mail_server = request.form.get('mail_server', '').strip()
@@ -291,11 +397,20 @@ def edit(company_id):
                 else:
                     flash('CSF cargada.' + app_key_msg, 'info')
 
+            if current_user.is_superuser and not validation_failed:
+                _sync_superuser_license(company)
+
             if not current_user.is_superuser:
                 submitted_app_key = request.form.get('app_key', '').strip()
                 if submitted_app_key:
                     normalized_app_key = normalize_app_key(submitted_app_key)
-                    if validate_app_key(company.razon_social, normalized_app_key, current_app.config.get('SECRET_KEY')):
+                    if validate_app_key(
+                        company.razon_social,
+                        normalized_app_key,
+                        current_app.config.get('SECRET_KEY'),
+                        company.app_key_expires_at,
+                        allow_legacy=True,
+                    ):
                         company.app_key = normalized_app_key
                         flash('APP-Key validada correctamente.', 'success')
                     elif not company.razon_social:
@@ -311,17 +426,22 @@ def edit(company_id):
                     company.razon_social,
                     company.app_key,
                     current_app.config.get('SECRET_KEY'),
+                    company.app_key_expires_at,
+                    allow_legacy=True,
                 ):
                     flash('Captura una APP-Key válida para la razón social fiscal registrada.', 'danger')
 
             if validation_failed:
                 db.session.rollback()
-                return render_template(
+                rendered = render_template(
                     'companies/form.html',
                     company=company,
                     ai_providers=Company.AI_PROVIDERS,
                     image_url=image_url,
-                ), 400
+                )
+                response = make_response(rendered)
+                response.status_code = 400
+                return response
 
             db.session.commit()
             flash('Empresa actualizada correctamente.', 'success')

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Bitácora SaaS — Application Factory
+Bitácora SaaS by KzmCITO - Kassim Assad Mosri Rodríguez — Application Factory
 Multi-tenant, multi-empresa.
 """
 import os
 from flask import Flask, flash, redirect, request, send_from_directory, session, url_for
 from flask_login import current_user
+from flask_wtf.csrf import CSRFError
 from .config import config_map
 from .extensions import db, migrate, login_manager, csrf, mail
 
@@ -37,6 +38,19 @@ def create_app(config_name=None):
         response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
         return response
 
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(error):
+        if request.endpoint == 'auth.login':
+            flash('La sesión de acceso expiró. Vuelve a intentar iniciar sesión.', 'warning')
+            return redirect(url_for('auth.login'))
+        flash('La sesión del formulario expiró. Recarga la página e intenta nuevamente.', 'warning')
+        return redirect(request.referrer or url_for('dashboard.index'))
+
+    @app.template_filter('plain_text')
+    def plain_text_filter(value):
+        from .utils.sanitizer import strip_html
+        return strip_html(value)
+
     # Registrar user_loader
     from .models.user import User
 
@@ -54,7 +68,12 @@ def create_app(config_name=None):
     from .routes.companies import companies_bp
     from .routes.groups import groups_bp
     from .routes.analytics import analytics_bp
+    from .routes.editor import editor_bp
+    from .routes.marketing import marketing_bp
+    from .routes.public import public_bp
+    from .routes.support import support_bp
 
+    app.register_blueprint(public_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(tasks_bp)
@@ -64,6 +83,12 @@ def create_app(config_name=None):
     app.register_blueprint(companies_bp)
     app.register_blueprint(groups_bp)
     app.register_blueprint(analytics_bp)
+    app.register_blueprint(editor_bp)
+    app.register_blueprint(marketing_bp)
+    app.register_blueprint(support_bp)
+
+    from .cli import register_cli
+    register_cli(app)
 
     # Exentar endpoints AJAX del CSRF cuando usan JSON
     csrf.exempt(analytics_bp)
@@ -85,7 +110,7 @@ def create_app(config_name=None):
             'companies.edit',
             'uploaded_file',
         }
-        if request.endpoint in allowed_endpoints:
+        if request.endpoint in allowed_endpoints or (request.endpoint or '').startswith('support.'):
             return None
 
         from .models.company import Company
@@ -98,7 +123,7 @@ def create_app(config_name=None):
         if company_has_valid_app_key(company, app.config.get('SECRET_KEY')):
             return None
 
-        flash('APP-Key inválida o pendiente. Las funciones quedan bloqueadas hasta capturar una clave correcta.', 'danger')
+        flash('APP-Key inválida, vencida o pendiente. Las funciones quedan bloqueadas hasta capturar una clave correcta.', 'danger')
         return redirect(url_for('companies.edit', company_id=current_user.empresa_id))
 
     # Context processors — variables globales para templates
